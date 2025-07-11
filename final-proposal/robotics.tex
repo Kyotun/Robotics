@@ -22,7 +22,7 @@ RWTH Aachen}
 \maketitle
 
 \begin{abstract}
-We propose a \textit{PyRoboSim}-based mobile robot that \emph{continuously} tidies a domestic environment by fetching clutter (dirty dishes, laundry, small toys) from their spawning locations and depositing each item in its designated receptacle.  A script-generated PDDL domain captures the pick--navigate--place loop, enabling a symbolic planner (Fast Downward) to produce high-level task sequences on demand.  Motion is decomposed into three layers: (i) a global \textbf{RRT*} path computed with OMPL to connect semantic way-points across rooms; (ii) a real-time grid-based \textbf{A*} planner that refines each leg of the route; and (iii) a reactive \textbf{Bug2} controller that guarantees escape from unforeseen blockages.  Because PyRoboSim supplies ground-truth object coordinates, no external perception module is required, allowing us to focus on planning, control, and life-cycle integration under ROS~2.
+We propose a \textit{PyRoboSim}-based mobile robot that \emph{continuously} tidies a domestic environment by fetching clutter (dirty dishes, laundry, small toys) from their spawning locations and depositing each item in its designated receptacle.  A script-generated PDDL domain captures the pick--navigate--place loop, enabling a symbolic planner (Fast Downward) to produce high-level task sequences on demand.  Motion is decomposed into three layers: (i) a global \textbf{RRT*} path computed with OMPL to connect semantic way-points across rooms; (ii) a real-time grid-based \textbf{A*} planner that refines each leg of the route; and (iii) a reactive \textbf{Bug2} controller to escape from unforeseen obstacles. Each area in the environment holds a probability score, which is dynamically updated from recent traversals, Objects are classified by a pretrained model, while their locations emerge online through the robot's continuous exploration. PyRoboSim supplies ground-truth object coordinates, so that no external perception module is required, allowing us to focus on planning, control, and life-cycle integration under ROS~2.
 \end{abstract}
 
 %-----------------------------------------------------------------
@@ -141,7 +141,7 @@ We illustrate the belief-map update mechanism with a concise two-frame scenario 
 Task completion & $\ge$90\% items delivered in a service round & Logged world-state queries\\
 Planning time & Symbolic $<$ 10s; global path $<$ 5s & ROS~2 timestamps\\
 Path optimality & Less then predefined max time & Compare to heuristic bound\\
-Git hygiene & $\ge$90\% unit-test coverage; green CI & GitHub Actions\\ \bottomrule
+Git hygiene & $\ge$90\% unit-test coverage; green CI & GitLab Actions\\ \bottomrule
 \end{tabular}
 \end{center}
 
