@@ -1,6 +1,6 @@
 # Fdb version 4
-["pdflatex"] 1752235821.54286 "/Users/kyotun/Desktop/Robotics/final-proposal/robotics.tex" "robotics.pdf" "robotics" 1752235822.4115 0
-  "/Users/kyotun/Desktop/Robotics/final-proposal/robotics.tex" 1752235785.7104 9826 192027965cba45fc64548c5ef9baf02e ""
+["pdflatex"] 1752244848.04589 "/Users/kyotun/Desktop/Robotics/final-proposal/robotics.tex" "robotics.pdf" "robotics" 1752244848.91606 0
+  "/Users/kyotun/Desktop/Robotics/final-proposal/robotics.tex" 1752244830.85631 10047 899a278557548f9a77939f007cfca941 ""
   "/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc" 1136849721 2971 def0b6c1f0b107b3b936def894055589 ""
   "/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc" 1136849721 2900 1537cc8184ad1792082cd229ecc269f4 ""
   "/usr/local/texlive/2024/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
@@ -172,11 +172,11 @@
   "/usr/local/texlive/2024/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1717508068.25812 5467645 128b85b7cde5f5edc5cb7f1dd7ff8736 ""
   "/usr/local/texlive/2024/texmf-var/web2c/pdftex/pdflatex.fmt" 1717507994 8221447 86d28c1dee95a29a9eb5d82b1a1653bc ""
   "/usr/local/texlive/2024/texmf.cnf" 1710266656 577 e590dabc9e28c5b61546e15f63eebcdf ""
-  "robotics.aux" 1752235822.28065 3347 9f9f68ecbce0fcda2b040c28cbabd13f "pdflatex"
-  "robotics.out" 1752235822.28149 1598 adce35e569f4326c335cf24d65bbcab5 "pdflatex"
-  "robotics.tex" 1752235785.7104 9826 192027965cba45fc64548c5ef9baf02e ""
-  "second.jpeg" 1752235471.8782 134877 ef81aeb382587fc2561028583f53818f ""
-  "third.jpeg" 1752235471.87915 128187 727edd79045c69b227ae1878bcc00423 ""
+  "robotics.aux" 1752244848.77957 3347 bf1732810dd42b12cbaa9b85d1240e89 "pdflatex"
+  "robotics.out" 1752244848.78041 1598 adce35e569f4326c335cf24d65bbcab5 "pdflatex"
+  "robotics.tex" 1752244830.85631 10047 899a278557548f9a77939f007cfca941 ""
+  "second.jpeg" 1752244140.16914 134877 ef81aeb382587fc2561028583f53818f ""
+  "third.jpeg" 1752244140.17001 128187 727edd79045c69b227ae1878bcc00423 ""
   (generated)
   "robotics.aux"
   "robotics.log"
