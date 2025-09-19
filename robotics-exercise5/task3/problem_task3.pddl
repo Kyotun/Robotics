@@ -5,7 +5,7 @@
     r1 - robot
     l_kitchen l_hall - location
     table1 counter1 - receptacle
-    apple1 - object
+    apple1 - item
   )
 
   (:init
@@ -13,7 +13,7 @@
     (handempty r1)
     (obj-at apple1 table1)
 
-    ;; simple connectivity (bidirectional edges)
+    ; bidirectional connectivity
     (connected l_kitchen table1)  (connected table1 l_kitchen)
     (connected l_kitchen l_hall)  (connected l_hall l_kitchen)
     (connected l_hall counter1)   (connected counter1 l_hall)
