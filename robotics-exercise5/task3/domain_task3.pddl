@@ -3,15 +3,20 @@
 
   (:types
     robot
-    location
-    receptacle - location
+    location            ; navigable locations
+    place     ; placeable surfaces (table, counter, shelf...)
     item
   )
 
   (:predicates
     (at ?r - robot ?l - location)
     (connected ?from - location ?to - location)
-    (obj-at ?o - item ?l - location)
+
+    ; mapping from receptacles to their containing location
+    (locationof ?p - place ?l - location)
+
+    ; object state
+    (on ?o - item ?s - place)
     (holding ?r - robot ?o - item)
     (handempty ?r - robot)
   )
@@ -25,20 +30,22 @@
   )
 
   (:action pick
-    :parameters (?r - robot ?o - item ?l - location)
+    :parameters (?r - robot ?o - item ?p - place ?l - location)
     :precondition (and (at ?r ?l)
-                       (obj-at ?o ?l)
+                       (locationof ?p ?l)
+                       (on ?o ?p)
                        (handempty ?r))
     :effect (and (holding ?r ?o)
                  (not (handempty ?r))
-                 (not (obj-at ?o ?l)))
+                 (not (on ?o ?p)))
   )
 
-  (:action place
-    :parameters (?r - robot ?o - item ?l - receptacle)
+  (:action put
+    :parameters (?r - robot ?o - item ?p - place ?l - location)
     :precondition (and (at ?r ?l)
+                       (locationof ?p ?l)
                        (holding ?r ?o))
-    :effect (and (obj-at ?o ?l)
+    :effect (and (on ?o ?p)
                  (handempty ?r)
                  (not (holding ?r ?o)))
   )

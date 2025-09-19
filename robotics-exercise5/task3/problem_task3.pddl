@@ -2,24 +2,27 @@
   (:domain pyrobosim-pickplace)
 
   (:objects
-    r1 - robot
-    l_kitchen l_hall - location
-    table1 counter1 - receptacle
+    my_robot - robot
+    kitchen living_room hall bedroom - location
+    table1 counter1 - place
     apple1 - item
   )
 
   (:init
-    (at r1 l_kitchen)
-    (handempty r1)
-    (obj-at apple1 table1)
+    (at my_robot kitchen)
+    (locationof table1 bedroom)
+    (locationof counter1 hall)
+    (handempty my_robot)
+    (on apple1 table1)
 
     ; bidirectional connectivity
-    (connected l_kitchen table1)  (connected table1 l_kitchen)
-    (connected l_kitchen l_hall)  (connected l_hall l_kitchen)
-    (connected l_hall counter1)   (connected counter1 l_hall)
+    (connected kitchen living_room)  (connected living_room kitchen)
+    (connected kitchen hall)  (connected hall kitchen)
+    (connected hall bedroom)  (connected bedroom hall)
+    (connected bedroom living_room)  (connected living_room bedroom)
   )
 
   (:goal
-    (and (obj-at apple1 counter1))
+    (and (on apple1 counter1))
   )
 )
