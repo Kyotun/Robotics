@@ -1,0 +1,252 @@
+##########################
+# Test world description #
+##########################
+
+# WORLD PARAMETERS
+params:
+  name: my_World
+  object_radius: 0.0375
+  wall_height: 2.0
+
+# METADATA: Describes information about locations and objects
+metadata:
+  locations:
+    - $DATA/example_location_data_furniture.yaml
+    - $DATA/example_location_data_accessories.yaml
+  objects:
+    - $DATA/example_object_data_food.yaml
+    - $DATA/example_object_data_drink.yaml
+
+# ROBOTS
+robots:
+  - name: Echo
+    radius: 0.1
+    location: kitchen
+    color: "#CC00CC"
+    pose:
+      position:
+        x: 0.0
+        y: 0.0
+    max_linear_velocity: 1.0
+    max_angular_velocity: 4.0
+    max_linear_acceleration: 2.5
+    max_angular_acceleration: 10.0
+
+
+
+    path_planner:
+      type: rrt
+      collision_check_step_dist: 0.025
+      max_connection_dist: 0.5
+      bidirectional: true
+      rrt_star: true
+      rewire_radius: 1.5
+      compress_path: false
+    path_executor:
+      type: constant_velocity
+      linear_velocity: 1.0
+      max_angular_velocity: 4.0
+      dt: 0.1
+      validate_during_execution: true
+      validation_dt: 0.5
+      validation_step_dist: 0.025
+    grasping:
+      generator: parallel_grasp
+      max_width: 0.175
+      depth: 0.1
+      height: 0.04
+      width_clearance: 0.01
+      depth_clearance: 0.01
+
+# ROOMS
+rooms:
+  - name: kitchen
+    footprint:
+      type: polygon
+      coords:
+        - [-1, -1]
+        - [1.5, -1]
+        - [1.5, 1.5]
+        - [0.5, 1.5]
+    nav_poses:
+      - position:
+          x: 0.75
+          y: 0.5
+    wall_width: 0.2
+    color: "red"
+
+  - name: office1
+    footprint:
+      type: box
+      dims: [1.75, 1.5]
+    pose:
+      position:
+        x: 2.625
+        y: 3.25
+    wall_width: 0.2
+    color: "#009900"
+
+  - name: bathroom
+    footprint:
+      type: polygon
+      coords:
+        - [-1, 1]
+        - [-1, 3.5]
+        - [-3, 3.5]
+        - [-2.5, 1]
+    wall_width: 0.2
+    color: [0, 0, 0.6]
+
+  - name: office2
+    footprint:
+      type: box
+      dims: [2.0, 1.5]
+    pose:
+      position:
+        x: 4.0
+        y: 1.0
+    wall_width: 0.2
+    color: "#3366FF"
+
+  
+
+# HALLWAYS
+hallways:
+  - room_start: kitchen
+    room_end: bathroom
+    width: 0.7
+    conn_method: auto
+    is_open: True
+    is_locked: False
+    color: "#666666"
+
+  - room_start: bathroom
+    room_end: office1
+    width: 0.5
+    conn_method: auto
+    conn_angle: 0.0
+    offset: 0.8
+    is_open: True
+    is_locked: False
+    color: "dimgray"
+
+  - room_start: kitchen
+    room_end: office1
+    width: 0.6
+    conn_method: auto
+    conn_points:
+    - [1.5, 0.5]
+    - [2.0, 1.0]
+    - [2.5, 3.0]
+
+    is_open: True
+    is_locked: False
+
+  - room_start: office1
+    room_end: office2
+    width: 0.6
+    conn_method: auto
+    conn_points:
+      - [3.5, 3.25]
+      - [4.0, 2.0]
+      - [4.0, 1.0]
+    is_open: true
+    is_locked: false
+    color: "#444444"
+
+  
+
+
+# LOCATIONS
+locations:
+  
+  - name: table0
+    category: table
+    parent: kitchen
+    pose:
+      position:
+        x: 0.9
+        y: -0.5
+      rotation_eul:
+        yaw: -90.0
+        angle_units: "degrees"
+    is_open: True
+    is_locked: True
+
+  - name: charger
+    category: charger
+    parent: office2
+    pose:
+      position:
+        x: 4.4
+        y: 0.5
+    is_open: False
+    is_locked: True
+    is_charger: True
+
+
+  - name: my_desk
+    category: desk
+    parent: office1
+    pose:
+      position:
+        x: 0.525
+        y: 0.4
+      relative_to: office1
+    is_open: True
+    is_locked: False
+  
+  - name: counter0
+    category: counter
+    parent: bathroom
+    pose:
+      position:
+        x: -2.45
+        y: 2.5
+      rotation_eul:
+        yaw: 101.2
+        angle_units: "degrees"
+    is_open: True
+    is_locked: True
+    
+
+  - name: trash
+    category: trash_can
+    parent: kitchen
+    pose:
+      position:
+        x: 0.9
+        y: 1.1
+      rotation_eul:
+        yaw: 90.0
+      angle_units: "degrees"
+    is_open: False
+    is_locked: False
+
+# OBJECTS
+objects:
+  
+
+  - category: apple
+    parent: my_desk
+    pose:
+      position:
+        x: 0.05
+        y: -0.15
+      relative_to: my_desk
+
+  
+
+  - name: fuji
+    category: apple
+    parent: trash
+
+  
+
+  - category: water
+    parent: my_desk
+
+  - name: soda
+    category: coke
+    parent: my_desk
+
