@@ -1,0 +1,16 @@
+# File: test_world.yaml
+metadata:
+  locations: "./test_locations.yaml"
+
+rooms:
+  - name: single_room
+    footprint:
+      type: box
+      dims: [4.0, 4.0]
+    pose: [2.0, 2.0, 0]
+
+locations:
+  - name: center_table
+    category: table
+    parent: single_room
+    pose: [2.0, 2.0, 0]
