@@ -12,7 +12,9 @@
 
     ; bidirectional connectivity between rooms
     (connected kitchen bathroom)   (connected bathroom kitchen)
-    (connected bathroom office1)   (connected office1 bathroom)
+    (connected kitchen office1)   (connected office1 kitchen)
+    (connected kitchen office2)   (connected office2 kitchen)
+    (connected bathroom office1) (connected office1 bathroom)
     (connected office1 office2)    (connected office2 office1)
   )
 

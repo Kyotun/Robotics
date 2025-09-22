@@ -58,8 +58,8 @@ if __name__ == "__main__":
 
     world_helper = WorldHelper(args.world_file)
     world = world_helper.getWorld
+    robot = world.robots[0]
 
-    # Silence UP credits banner (optional)
     up.shortcuts.get_environment().credits_stream = None
 
     # Extract steps
@@ -74,7 +74,6 @@ if __name__ == "__main__":
         print("  move", frm, "->", to)
 
     # Execute
-    robot = world.robots[0]
     def thread_func():
         actions = []
         for frm, to in plan_steps:
