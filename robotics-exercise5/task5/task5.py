@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """
-Task 4 — Visit-All with Unified Planning (UPF) + PyRoboSim
 
 This script:
   - builds/loads a PyRoboSim world,
@@ -9,10 +8,10 @@ This script:
   - executes the plan by navigating the robot room-to-room.
 
 Usage:
-  python task4_visit_all.py --domain-file visit_all_domain.pddl --problem-file visit_all_problem.pddl
-  python task4_visit_all.py --world-file example_world.yaml --domain-file ... --problem-file ...
-  python task4_visit_all.py --no-gui --domain-file ... --problem-file ...
-  python task4_visit_all.py --engine pyperplan --domain-file ... --problem-file ...
+  python task.py --domain-file domain.pddl --problem-file problem.pddl
+  python task.py --world-file example_world.yaml --domain-file ... --problem-file ...
+  python task.py --no-gui --domain-file ... --problem-file ...
+  python task.py --engine pyperplan --domain-file ... --problem-file ...
 """
 
 import os
@@ -74,4 +73,4 @@ if __name__ == "__main__":
 
     # Execute
     world_helper.executeVisitAll(plan_steps)
-    print("[DONE] Task 4 execution finished.")
+    print("[DONE] execution finished.")
