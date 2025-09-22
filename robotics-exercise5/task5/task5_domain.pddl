@@ -5,20 +5,20 @@
     robot
     room         ; navigable locations
     location     ; placeable surfaces (table, counter, shelf...)
-    item
+    object
   )
 
   (:predicates
-    (at ?r - robot ?l - room)
+    (at ?r - robot ?rm - room)
     (connected ?from - room ?to - room)
-    (visited ?l - room)
+    (visited ?rm - room)
 
     ; mapping from receptacles to their containing location
     (locationof ?l - location ?rm - room)
 
     ; object state
-    (on ?o - item ?l - location)
-    (holding ?r - robot ?o - item)
+    (on ?o - object ?l - location)
+    (holding ?r - robot ?o - object)
     (handempty ?r - robot)
   )
 
@@ -31,7 +31,7 @@
   )
 
   (:action pick
-    :parameters (?r - robot ?o - item ?l - location ?rm - room)
+    :parameters (?r - robot ?o - object ?l - location ?rm - room)
     :precondition (and (at ?r ?rm)
                        (locationof ?l ?rm)
                        (on ?o ?l)
@@ -42,7 +42,7 @@
   )
 
   (:action put
-    :parameters (?r - robot ?o - item ?l - location ?rm - room)
+    :parameters (?r - robot ?o - object ?l - location ?rm - room)
     :precondition (and (at ?r ?rm)
                        (locationof ?l ?rm)
                        (holding ?r ?o))

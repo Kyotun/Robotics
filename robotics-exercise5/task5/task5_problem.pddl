@@ -5,7 +5,7 @@
     my_robot - robot
     kitchen bathroom office1 office2 - room
     table1 counter1 - location
-    apple1 - item
+    apple1 - object
   )
 
   (:init
