@@ -65,17 +65,28 @@ if __name__ == "__main__":
     # Extract steps
     plan_steps = []
     print("[UPF] Plan:")
-    for current_action in result.plan.actions:
-        name = current_action.actual_parameters[2].object().name
-        plan_steps.append(TaskAction("navigate", target_location=name))
-        print("  ", name)
-
-    # Start GUI unless headless
-    threading.Thread(target=start_gui, args=(world,), daemon=True).start()
+    for ai in result.plan.actions:
+        if ai.action.name != "move":
+            continue
+        params = [str(o) for o in ai.actual_parameters]
+        _, frm, to = params
+        plan_steps.append((frm, to))
+        print("  move", frm, "->", to)
 
     # Execute
-    plan = TaskPlan(actions=plan_steps)
     robot = world.robots[0]
-    robot.task_plan = plan
-    result_exection, num_steps = robot.execute_plan(plan=plan)
-    print(f"Exec result: {result_exection.status.name}, steps: {num_steps}")
+    def thread_func():
+        actions = []
+        for frm, to in plan_steps:
+            target_loc = f"nav_{to}"                 # concrete location name
+            actions.append(TaskAction("navigate", target_location=target_loc))
+
+        plan = TaskPlan(actions=actions)
+        robot.task_plan = plan
+        result, num_completed = robot.execute_plan(robot.task_plan)
+        print(f"Exec result: {result}, steps: {num_completed}")
+    
+    threading.Thread(target=thread_func, daemon=True).start()
+
+    # Start GUI unless headless
+    start_gui(world)

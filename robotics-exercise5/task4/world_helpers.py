@@ -25,6 +25,7 @@ class WorldHelper():
         self.multi_robot: bool = False
         self.partial_obs_objects: bool = False
         self.checkWorldInit()
+        self.ensureRoomNavLocations()
 
     @property
     def dataFolder(self) -> str:
@@ -45,6 +46,42 @@ class WorldHelper():
     @property
     def getWorld(self) -> World:
         return self.world
+    
+    def roomCentroid(room):
+        xs = [p[0] for p in room.footprint]
+        ys = [p[1] for p in room.footprint]
+        return Pose(x=sum(xs)/len(xs), y=sum(ys)/len(ys), yaw=0.0)
+    
+    def ensureRoomNavLocations(self):
+        """
+        Create a named location inside each room to use as a navigation target.
+        Reuse any existing location category from your metadata (e.g., 'desk' or 'table').
+        """
+        world = self.getWorld
+        for room in world.rooms:
+            nav_name = f"nav_{room.name}"
+            # Skip if already present
+            if any(getattr(loc, "name", "") == nav_name for loc in world.locations):
+                continue
+
+            # Choose a pose: prefer room.nav_poses[0], else centroid
+            if getattr(room, "nav_poses", None):
+                pose = room.nav_poses[0]
+            else:
+                pose = self.roomCentroid(room)
+
+            # Use a category you already have in your metadata
+            try:
+                world.add_location(category="desk", parent=room.name, name=nav_name, pose=pose)
+            except Exception:
+                world.add_location(category="table", parent=room.name, name=nav_name, pose=pose)
+    
+    def findRoomByName(self, room_name:str):
+        world = self.getWorld
+        for r in world.rooms:
+            if getattr(r, "name", None) == room_name:
+                return r
+        return None
     
     def getRobot(self, preferred_name: str = "") -> Robot:
         world = self.getWorld
@@ -78,10 +115,20 @@ class WorldHelper():
         """Command the robot to navigate to a room's nav pose. Poll the world until idle."""
         world = self.getWorld
         goal_pose = self.getRoomNavPose(room_name)
-        robot.navigate_to(goal_pose)
+        if goal_pose is None:
+            available = [r.name for r in self.world.rooms]
+            raise RuntimeError(
+                f"[navigateToRoom] Goal pose is None for room '{room_name}'. "
+                f"Available rooms: {available}"
+            )
+        
+        print(f"[EXEC] navigate_to {room_name} -> Pose(x={goal_pose.x:.3f}, y={goal_pose.y:.3f}, yaw={getattr(goal_pose, 'yaw', 0.0)})")
 
-        if not block:
-            return
+        # Sanity: make sure robot has a path planner
+        if getattr(robot, "path_planner", None) is None:
+            raise RuntimeError("[navigateToRoom] robot.path_planner is None. Set RRT/PRM/A* before navigating.")
+    
+        robot.navigate(goal_pose)
 
         t0 = time.time()
         while True:
@@ -96,11 +143,7 @@ class WorldHelper():
             if not busy:
                 break
 
-            # Step simulation or sleep if GUI thread owns stepping
-            try:
-                world.update(dt)
-            except Exception:
-                time.sleep(dt)
+            time.sleep(dt)
 
             if time.time() - t0 > timeout_s:
                 print(f"[WARN] Timeout navigating to {room_name}")
@@ -109,22 +152,28 @@ class WorldHelper():
     def getRoomNavPose(self, room_name: str) -> Pose:
         """Pick a reasonable navigation target pose for a room."""
         world = self.getWorld
-        room = world.get_room(room_name)
+        room = self.findRoomByName(room_name)
         if room is None:
-            return Pose(0.0, 0.0)
-        # Prefer an explicitly defined nav pose
-        try:
-            if room.nav_poses:
-                return room.nav_poses[0]
-        except Exception:
-            pass
-        # Fallback: centroid of footprint
-        try:
-            xs = [fprnt[0] for fprnt in room.footprint]
-            ys = [fprnt[1] for fprnt in room.footprint]
-            return Pose(sum(xs) / len(xs), sum(ys) / len(ys))
-        except Exception:
-            return Pose(0.0, 0.0)
+            available = [r.name for r in world.rooms]
+            raise ValueError(
+                f"Room '{room_name}' not found. Available rooms: {available}"
+            )
+        
+            # Prefer explicit nav pose
+        nav_poses = getattr(room, "nav_poses", None)
+        if nav_poses and len(nav_poses) > 0 and isinstance(nav_poses[0], Pose):
+            return nav_poses[0]
+    
+        # Fallback: compute centroid of footprint
+        fp = getattr(room, "footprint", None)
+        if fp and len(fp) > 0:
+            xs = [p[0] for p in fp]
+            ys = [p[1] for p in fp]
+            return Pose(x=sum(xs) / len(xs), y=sum(ys) / len(ys), yaw=0.0)
+
+        # Ultimate fallback — should never happen on valid rooms
+        # but return a real Pose instead of None to avoid "no goal" warnings
+        return Pose(x=0.0, y=0.0, yaw=0.0)
         
     def checkWorldInit(self) -> None:
         """If user gave world_file we create it from yaml file, otherwise use createWorld function."""
@@ -184,7 +233,10 @@ class WorldHelper():
 
         # Add hallways between the rooms
         world.add_hallway(
-            room_start="kitchen", room_end="bathroom", width=0.7, color="#666666"
+            room_start="kitchen",
+            room_end="bathroom",
+            width=0.7,
+            color="#666666"
         )
         world.add_hallway(
             room_start="bathroom",
@@ -194,13 +246,6 @@ class WorldHelper():
             conn_angle=0,
             offset=0.8,
             color="dimgray",
-        )
-        world.add_hallway(
-            room_start="kitchen",
-            room_end="office1",
-            width=0.6,
-            conn_method="points",
-            conn_points=[(1.0, 0.5), (2.5, 0.5), (2.5, 3.0)],
         )
         world.add_hallway(
             room_start="office1",

@@ -3,7 +3,7 @@
 
   (:objects
     my_robot - robot
-    kitchen living_room hall bedroom - room
+    kitchen office1 office2 bathroom - room
   )
 
   (:init
@@ -11,18 +11,17 @@
     (visited kitchen)   ; count the start room as already visited
 
     ; bidirectional connectivity between rooms
-    (connected kitchen living_room)  (connected living_room kitchen)
-    (connected kitchen hall)         (connected hall kitchen)
-    (connected hall bedroom)         (connected bedroom hall)
-    (connected bedroom living_room)  (connected living_room bedroom)
+    (connected kitchen bathroom)   (connected bathroom kitchen)
+    (connected bathroom office1)   (connected office1 bathroom)
+    (connected office1 office2)    (connected office2 office1)
   )
 
   (:goal
     (and
       (visited kitchen)
-      (visited living_room)
-      (visited hall)
-      (visited bedroom)
+      (visited office1)
+      (visited office2)
+      (visited bathroom)
     )
   )
 )
