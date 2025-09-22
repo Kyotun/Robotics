@@ -3,8 +3,8 @@
 
   (:objects
     my_robot - robot
-    kitchen living_room hall bedroom - location
-    table1 counter1 - place
+    kitchen bathroom office1 office2 - room
+    table1 counter1 - location
     apple1 - item
   )
 
@@ -17,10 +17,11 @@
     (on apple1 table1)
 
     ; bidirectional connectivity
-    (connected kitchen living_room)  (connected living_room kitchen)
-    (connected kitchen hall)  (connected hall kitchen)
-    (connected hall bedroom)  (connected bedroom hall)
-    (connected bedroom living_room)  (connected living_room bedroom)
+    (connected kitchen bathroom)   (connected bathroom kitchen)
+    (connected kitchen office1)   (connected office1 kitchen)
+    (connected kitchen office2)   (connected office2 kitchen)
+    (connected bathroom office1) (connected office1 bathroom)
+    (connected office1 office2)    (connected office2 office1)
   )
 
   (:goal

@@ -1,9 +1,12 @@
 import os
+from pathlib import Path
 import time
 
 # PyRoboSim 
 from pyrobosim.core.robot import Robot
+from pyrobosim.core.locations import Location
 from pyrobosim.core.world import World
+from pyrobosim.core.room import Room
 from pyrobosim.core.yaml_utils import WorldYamlLoader
 from pyrobosim.manipulation import GraspGenerator, ParallelGraspProperties
 from pyrobosim.navigation.execution import ConstantVelocityExecutor
@@ -24,7 +27,8 @@ class WorldHelper():
         self.world: World = None
         self.multi_robot: bool = False
         self.partial_obs_objects: bool = False
-        self.checkWorldInit
+        self.checkWorldInit()
+        self.ensureRoomNavLocations()
 
     @property
     def dataFolder(self) -> str:
@@ -46,6 +50,32 @@ class WorldHelper():
     def getWorld(self) -> World:
         return self.world
     
+    def getRoomCenter(room: Room) -> Pose:
+        """Returns the x and y coordinate of the room."""
+        xs = [p[0] for p in room.footprint]
+        ys = [p[1] for p in room.footprint]
+        return Pose(x=sum(xs)/len(xs), y=sum(ys)/len(ys), yaw=0.0)
+    
+
+    def getRoomByName(self, room_name:str) -> Room | None:
+        world = self.getWorld
+        for room in world.rooms:
+            if getattr(room, "name", None) == room_name:
+                return room
+        return None
+
+
+    def getRoomBasePose(self, room:Room) -> Pose:
+         # 1) explicit nav pose
+        navs = getattr(room, "nav_poses", None)
+        if navs:
+            return navs[0]
+        # 2) centroid fallback
+        xs = [p[0] for p in room.footprint]
+        ys = [p[1] for p in room.footprint]
+        return Pose(x=sum(xs)/len(xs), y=sum(ys)/len(ys), yaw=0.0)
+
+
     def getRobot(self, preferred_name: str = "") -> Robot:
         world = self.getWorld
         if preferred_name:
@@ -56,6 +86,72 @@ class WorldHelper():
         if not world.robots:
             raise RuntimeError("No robots in world. Add one with world.add_robot(...)")
         return world.robots[0]
+
+
+    def getRoomNavPose(self, room_name: str) -> Pose:
+        """Pick a reasonable navigation target pose for a room."""
+        world = self.getWorld
+        room = self.getRoomByName(room_name)
+        if room is None:
+            available = [r.name for r in world.rooms]
+            raise ValueError(
+                f"Room '{room_name}' not found. Available rooms: {available}"
+            )
+        
+            # Prefer explicit nav pose
+        nav_poses = getattr(room, "nav_poses", None)
+        if nav_poses and len(nav_poses) > 0 and isinstance(nav_poses[0], Pose):
+            return nav_poses[0]
+    
+        # Fallback: compute centroid of footprint
+        fp = getattr(room, "footprint", None)
+        if fp and len(fp) > 0:
+            xs = [p[0] for p in fp]
+            ys = [p[1] for p in fp]
+            return Pose(x=sum(xs) / len(xs), y=sum(ys) / len(ys), yaw=0.0)
+
+        # Ultimate fallback — should never happen on valid rooms
+        # but return a real Pose instead of None to avoid "no goal" warnings
+        return Pose(x=0.0, y=0.0, yaw=0.0)
+
+
+    def addNavLocation(self, room_name: str, nav_name: str, base: Pose) -> Location | None:
+        """
+        Try to place a small, collision-free nav marker in 'room_name'.
+        We reuse existing metadata categories (first 'desk', then 'table'),
+        because you already load those in Task 1.
+        """
+        # radial/off-grid offsets to escape furniture & walls
+        radii = [0.0, 0.2, -0.2, 0.35, -0.35, 0.5, -0.5, 0.65, -0.65]
+        dirs  = [(1,0),(0,1),(-1,0),(0,-1),(1,1),(-1,1),(1,-1),(-1,-1)]
+        world = self.getWorld
+        for r in radii:
+            for dx, dy in dirs:
+                pose = Pose(x=base.x + dx*r, y=base.y + dy*r, yaw=0.0)
+                loc = world.add_location(category="waypoint", parent=room_name, name=nav_name, pose=pose)
+                if loc is not None:
+                    return loc
+        return None
+
+    
+    def ensureRoomNavLocations(self) -> None:
+        """
+        Create a named location inside each room to use as a navigation target.
+        Reuse any existing location category from your metadata (e.g., 'desk' or 'table').
+        """
+        world = self.getWorld
+        for room in world.rooms:
+            nav_name = f"nav_{room.name}"
+            # Skip if already present
+            if any(getattr(loc, "name", "") == nav_name for loc in world.locations):
+                continue
+            
+            base = self.getRoomBasePose(room)
+            loc = self.addNavLocation(room.name, nav_name, base)
+            if loc is None:
+                print(f"[WARN] Could not place '{nav_name}' (room crowded?). "
+                    f"Consider adding room.nav_poses for '{room.name}'.")
+
 
     def executeVisitAll(self, plan_steps: list):
         """Map PDDL 'move(my_robot, from, to)' to PyRoboSim navigation."""
@@ -78,10 +174,20 @@ class WorldHelper():
         """Command the robot to navigate to a room's nav pose. Poll the world until idle."""
         world = self.getWorld
         goal_pose = self.getRoomNavPose(room_name)
-        robot.navigate_to(goal_pose)
+        if goal_pose is None:
+            available = [r.name for r in self.world.rooms]
+            raise RuntimeError(
+                f"[navigateToRoom] Goal pose is None for room '{room_name}'. "
+                f"Available rooms: {available}"
+            )
+        
+        print(f"[EXEC] navigate_to {room_name} -> Pose(x={goal_pose.x:.3f}, y={goal_pose.y:.3f}, yaw={getattr(goal_pose, 'yaw', 0.0)})")
 
-        if not block:
-            return
+        # Sanity: make sure robot has a path planner
+        if getattr(robot, "path_planner", None) is None:
+            raise RuntimeError("[navigateToRoom] robot.path_planner is None. Set RRT/PRM/A* before navigating.")
+    
+        robot.navigate(goal_pose)
 
         t0 = time.time()
         while True:
@@ -96,43 +202,20 @@ class WorldHelper():
             if not busy:
                 break
 
-            # Step simulation or sleep if GUI thread owns stepping
-            try:
-                world.update(dt)
-            except Exception:
-                time.sleep(dt)
+            time.sleep(dt)
 
             if time.time() - t0 > timeout_s:
                 print(f"[WARN] Timeout navigating to {room_name}")
                 break
-    
-    def getRoomNavPose(self, room_name: str) -> Pose:
-        """Pick a reasonable navigation target pose for a room."""
-        world = self.getWorld
-        room = world.get_room(room_name)
-        if room is None:
-            return Pose(0.0, 0.0)
-        # Prefer an explicitly defined nav pose
-        try:
-            if room.nav_poses:
-                return room.nav_poses[0]
-        except Exception:
-            pass
-        # Fallback: centroid of footprint
-        try:
-            xs = [fprnt[0] for fprnt in room.footprint]
-            ys = [fprnt[1] for fprnt in room.footprint]
-            return Pose(sum(xs) / len(xs), sum(ys) / len(ys))
-        except Exception:
-            return Pose(0.0, 0.0)
+
         
     def checkWorldInit(self) -> None:
         """If user gave world_file we create it from yaml file, otherwise use createWorld function."""
-        self.world = self.createWorld if not self.worldFile else self.createWorldFromYaml
+        self.world = self.createWorld() if not self.worldFile else self.createWorldFromYaml()
 
 
     def createWorldFromYaml(self) -> World:
-        return WorldYamlLoader().from_file(os.path.join(self.dataFolder, self.worldFile))
+        self.world = WorldYamlLoader().from_file(os.path.join(self.dataFolder, self.worldFile))
 
 
     def createWorld(self) -> World:
@@ -144,6 +227,7 @@ class WorldHelper():
             locations=[
                 os.path.join(self.dataFolder, "example_location_data_furniture.yaml"),
                 os.path.join(self.dataFolder, "example_location_data_accessories.yaml"),
+                Path("./locations.yaml")
             ],
             objects=[
                 os.path.join(self.dataFolder, "example_object_data_food.yaml"),
@@ -152,31 +236,32 @@ class WorldHelper():
         )
 
         # Add rooms
-        r1coords = [(-1, -1), (1.5, -1), (1.5, 1.5), (0.5, 1.5)]
+        kitchen_coords = [(-1, -1), (1.5, -1), (1.5, 1.5), (0.5, 1.5)]
         world.add_room(
             name="kitchen",
             pose=Pose(x=0.0, y=0.0, z=0.0, yaw=0.0),
-            footprint=r1coords,
+            footprint=kitchen_coords,
             color="red",
             nav_poses=[Pose(x=0.75, y=0.75, z=0.0, yaw=0.0)],
         )
-        r2coords = [(-0.875, -0.75), (0.875, -0.75), (0.875, 0.75), (-0.875, 0.75)]
+        office1_coords = [(1.75, 2.50), (3.50, 2.50), (3.5, 4.0), (1.75, 4.0)]
         world.add_room(
             name="office1",
-            pose=Pose(x=2.625, y=3.25, z=0.0, yaw=0.0),
-            footprint=r2coords,
+            pose=Pose(x=2.625, y=3.0, z=0.0, yaw=0.0),
+            footprint=office1_coords,
             color="#009900",
         )
-        r3coords = [(-1, 1), (-1, 3.5), (-3.0, 3.5), (-2.5, 1)]
+        bathroom_coords = [(-2.5, 1), (-1, 1), (-1.0, 3.5), (-3.0, 3.5)]
         world.add_room(
             name="bathroom",
-            footprint=r3coords,
+            pose=Pose(x=-1.5, y=2.8, z=0.0, yaw=0.0),
+            footprint=bathroom_coords,
             color=[0.0, 0.0, 0.6],
         )
-        office2_coords = [(-1.0, -0.75), (1.0, -0.75), (1.0, 0.75), (-1.0, 0.75)]
+        office2_coords = [(3.0, 0.25), (5.0, 0.25), (5.0, 1.75), (3.0, 1.75)]
         world.add_room(
             name="office2",
-            pose=Pose(x=4.0, y=1.0),
+            pose=Pose(x=4.0, y=1.0, z=0.0, yaw=0.0),
             footprint=office2_coords,
             color="#3366FF"
         )
@@ -184,67 +269,59 @@ class WorldHelper():
 
         # Add hallways between the rooms
         world.add_hallway(
-            room_start="kitchen", room_end="bathroom", width=0.7, color="#666666"
+            room_start="kitchen",
+            room_end="bathroom",
+            width=0.7,
+            color="#666666"
         )
         world.add_hallway(
             room_start="bathroom",
             room_end="office1",
             width=0.5,
-            conn_method="angle",
-            conn_angle=0,
-            offset=0.8,
             color="dimgray",
-        )
-        world.add_hallway(
-            room_start="kitchen",
-            room_end="office1",
-            width=0.6,
-            conn_method="points",
-            conn_points=[(1.0, 0.5), (2.5, 0.5), (2.5, 3.0)],
         )
         world.add_hallway(
             room_start="office1",
             room_end="office2",
             width=0.6,
-            conn_method="points",
-            conn_points=[(3.5, 3.25), (4.0, 2.0), (4.0, 1.0)],
+            color="#444444"
+        )
+
+        world.add_hallway(
+            room_start="office1",
+            room_end="kitchen",
+            width=0.6,
+            color="#444444"
+        )
+        world.add_hallway(
+            room_start="office2",
+            room_end="kitchen",
+            width=0.6,
             color="#444444"
         )
 
 
         # Add locations
-        table = world.add_location(
+        table_kitchen = world.add_location(
             category="table",
             parent="kitchen",
             pose=Pose(x=0.85, y=-0.5, z=0.0, yaw=-90.0, angle_units="degrees"),
         )
-        desk_pose = world.get_pose_relative_to(
-            Pose(x=0.525, y=0.4, z=0.0, yaw=0.0), "office1"
-        )
-        desk = world.add_location(category="desk", parent="office1", pose=desk_pose)
 
-    
-
-        counter = world.add_location(
-            category="counter",
+        # Add locations
+        table_bathroom = world.add_location(
+            category="little_table",
             parent="bathroom",
-            pose=Pose(x=-2.45, y=2.5, z=0.0, q=[0.634411, 0.0, 0.0, 0.7729959]),
+            pose=Pose(x=0.85, y=-0.5, z=0.0, yaw=-90.0, angle_units="degrees"),
         )
 
         # Add objects
         banana_pose = world.get_pose_relative_to(
-            Pose(x=0.15, y=0.0, z=0.0, q=[0.9238811, 0.0, 0.0, -0.3826797]), table
+            Pose(x=0.15, y=0.0, z=0.0, q=[0.9238811, 0.0, 0.0, -0.3826797]), table_kitchen
         )
-        world.add_object(category="banana", parent=table, pose=banana_pose)
-        apple_pose = world.get_pose_relative_to(
-            Pose(x=0.05, y=-0.15, z=0.0, q=[1.0, 0.0, 0.0, 0.0]), desk
-        )
-        world.add_object(category="apple", parent=desk, pose=apple_pose)
-        world.add_object(category="apple", parent=table)
-        world.add_object(category="apple", parent=table)
-        world.add_object(category="water", parent=counter)
-        world.add_object(category="banana", parent=counter)
-        world.add_object(category="water", parent=desk)
+        world.add_object(category="banana", parent=table_kitchen, pose=banana_pose)
+        world.add_object(category="apple", parent=table_kitchen)
+        world.add_object(category="apple", parent=table_kitchen)
 
         # Add robots
         grasp_props = ParallelGraspProperties(

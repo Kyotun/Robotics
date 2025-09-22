@@ -13,6 +13,7 @@ metadata:
   locations:
     - $DATA/example_location_data_furniture.yaml
     - $DATA/example_location_data_accessories.yaml
+    - ./locations.yaml
   objects:
     - $DATA/example_object_data_food.yaml
     - $DATA/example_object_data_drink.yaml
@@ -155,8 +156,6 @@ hallways:
     color: "#444444"
 
   
-
-
 # LOCATIONS
 locations:
   
