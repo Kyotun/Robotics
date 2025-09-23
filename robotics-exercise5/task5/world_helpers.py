@@ -27,7 +27,7 @@ class WorldHelper():
         self.world: World = None
         self.multi_robot: bool = False
         self.partial_obs_objects: bool = False
-        self.checkWorldInit()
+        self.createWorldFromYaml()
         self.ensureRoomNavLocations()
 
     @property
@@ -133,7 +133,7 @@ class WorldHelper():
                     return loc
         return None
 
-    
+
     def ensureRoomNavLocations(self) -> None:
         """
         Create a named location inside each room to use as a navigation target.
@@ -164,7 +164,8 @@ class WorldHelper():
             _, frm, to = params
             print(f"[EXEC] move: {frm} -> {to}")
             self.navigateToRoom(world, robot, to, block=True)
-    
+
+
     def navigateToRoom(self,
                         robot: Robot,
                         room_name: str,
@@ -208,202 +209,7 @@ class WorldHelper():
                 print(f"[WARN] Timeout navigating to {room_name}")
                 break
 
-        
-    def checkWorldInit(self) -> None:
-        """If user gave world_file we create it from yaml file, otherwise use createWorld function."""
-        self.world = self.createWorld() if not self.worldFile else self.createWorldFromYaml()
-
 
     def createWorldFromYaml(self) -> World:
-        self.world = WorldYamlLoader().from_file(os.path.join(self.dataFolder, self.worldFile))
-
-
-    def createWorld(self) -> World:
-        """Create a test world"""
-        world = World()
-
-        # Set the location and object metadata
-        world.add_metadata(
-            locations=[
-                os.path.join(self.dataFolder, "example_location_data_furniture.yaml"),
-                os.path.join(self.dataFolder, "example_location_data_accessories.yaml"),
-                Path("./locations.yaml")
-            ],
-            objects=[
-                os.path.join(self.dataFolder, "example_object_data_food.yaml"),
-                os.path.join(self.dataFolder, "example_object_data_drink.yaml"),
-            ],
-        )
-
-        # Add rooms
-        kitchen_coords = [(-1, -1), (1.5, -1), (1.5, 1.5), (0.5, 1.5)]
-        world.add_room(
-            name="kitchen",
-            pose=Pose(x=0.0, y=0.0, z=0.0, yaw=0.0),
-            footprint=kitchen_coords,
-            color="red",
-            nav_poses=[Pose(x=0.75, y=0.75, z=0.0, yaw=0.0)],
-        )
-        office1_coords = [(1.75, 2.50), (3.50, 2.50), (3.5, 4.0), (1.75, 4.0)]
-        world.add_room(
-            name="office1",
-            pose=Pose(x=2.625, y=3.0, z=0.0, yaw=0.0),
-            footprint=office1_coords,
-            color="#009900",
-        )
-        bathroom_coords = [(-2.5, 1), (-1, 1), (-1.0, 3.5), (-3.0, 3.5)]
-        world.add_room(
-            name="bathroom",
-            pose=Pose(x=-1.5, y=2.8, z=0.0, yaw=0.0),
-            footprint=bathroom_coords,
-            color=[0.0, 0.0, 0.6],
-        )
-        office2_coords = [(3.0, 0.25), (5.0, 0.25), (5.0, 1.75), (3.0, 1.75)]
-        world.add_room(
-            name="office2",
-            pose=Pose(x=4.0, y=1.0, z=0.0, yaw=0.0),
-            footprint=office2_coords,
-            color="#3366FF"
-        )
-        
-
-        # Add hallways between the rooms
-        world.add_hallway(
-            room_start="kitchen",
-            room_end="bathroom",
-            width=0.7,
-            color="#666666"
-        )
-        world.add_hallway(
-            room_start="bathroom",
-            room_end="office1",
-            width=0.5,
-            color="dimgray",
-        )
-        world.add_hallway(
-            room_start="office1",
-            room_end="office2",
-            width=0.6,
-            color="#444444"
-        )
-
-        world.add_hallway(
-            room_start="office1",
-            room_end="kitchen",
-            width=0.6,
-            color="#444444"
-        )
-        world.add_hallway(
-            room_start="office2",
-            room_end="kitchen",
-            width=0.6,
-            color="#444444"
-        )
-
-
-        # Add locations
-        table_kitchen = world.add_location(
-            category="table",
-            parent="kitchen",
-            pose=Pose(x=0.85, y=-0.5, z=0.0, yaw=-90.0, angle_units="degrees"),
-        )
-
-        # Add locations
-        table_bathroom = world.add_location(
-            category="little_table",
-            parent="bathroom",
-            pose=Pose(x=0.85, y=-0.5, z=0.0, yaw=-90.0, angle_units="degrees"),
-        )
-
-        # Add objects
-        banana_pose = world.get_pose_relative_to(
-            Pose(x=0.15, y=0.0, z=0.0, q=[0.9238811, 0.0, 0.0, -0.3826797]), table_kitchen
-        )
-        world.add_object(category="banana", parent=table_kitchen, pose=banana_pose)
-        world.add_object(category="apple", parent=table_kitchen)
-        world.add_object(category="apple", parent=table_kitchen)
-
-        # Add robots
-        grasp_props = ParallelGraspProperties(
-            max_width=0.175,
-            depth=0.1,
-            height=0.04,
-            width_clearance=0.01,
-            depth_clearance=0.01,
-        )
-        lidar = Lidar2D(
-            update_rate_s=0.1,
-            angle_units="degrees",
-            min_angle=-120.0,
-            max_angle=120.0,
-            angular_resolution=5.0,
-            max_range_m=2.0,
-        )
-
-        robot0 = Robot(
-            name="robot0",
-            radius=0.1,
-            path_executor=ConstantVelocityExecutor(
-                linear_velocity=1.0,
-                dt=0.1,
-                max_angular_velocity=4.0,
-                validate_during_execution=True,
-            ),
-            sensors={"lidar": lidar},
-            grasp_generator=GraspGenerator(grasp_props),
-            partial_obs_objects=self.partialObsObjects,
-            color="#CC00CC",
-        )
-        world.add_robot(robot0, loc="kitchen")
-        planner_config_rrt = {
-            "bidirectional": True,
-            "rrt_connect": False,
-            "rrt_star": True,
-            "collision_check_step_dist": 0.025,
-            "max_connection_dist": 0.5,
-            "rewire_radius": 1.5,
-            "compress_path": False,
-        }
-        rrt_planner = RRTPlanner(**planner_config_rrt)
-        robot0.set_path_planner(rrt_planner)
-
-        if self.multiRobot:
-            robot1 = Robot(
-                name="robot1",
-                radius=0.08,
-                color=(0.8, 0.8, 0),
-                path_executor=ConstantVelocityExecutor(),
-                grasp_generator=GraspGenerator(grasp_props),
-                partial_obs_objects=self.partialObsObjects,
-            )
-            world.add_robot(robot1, loc="bathroom")
-            planner_config_prm = {
-                "collision_check_step_dist": 0.025,
-                "max_connection_dist": 1.5,
-                "max_nodes": 100,
-                "compress_path": False,
-            }
-            prm_planner = PRMPlanner(**planner_config_prm)
-            robot1.set_path_planner(prm_planner)
-
-            robot2 = Robot(
-                name="robot2",
-                radius=0.06,
-                color=(0, 0.8, 0.8),
-                path_executor=ConstantVelocityExecutor(),
-                grasp_generator=GraspGenerator(grasp_props),
-                partial_obs_objects=self.partialObsObjects,
-            )
-            world.add_robot(robot2, loc="office1")
-            planner_config_astar = {
-                "grid_resolution": 0.05,
-                "grid_inflation_radius": 0.15,
-                "diagonal_motion": True,
-                "heuristic": "euclidean",
-            }
-            astar_planner = AStarPlanner(**planner_config_astar)
-            robot2.set_path_planner(astar_planner)
-
-        return world
-    
-
+        self.world = WorldYamlLoader().from_file(f"./{self.world_file}.yaml")
+        return self.world
