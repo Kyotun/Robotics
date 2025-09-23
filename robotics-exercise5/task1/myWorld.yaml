@@ -13,13 +13,14 @@ metadata:
   locations:
     - $DATA/example_location_data_furniture.yaml
     - $DATA/example_location_data_accessories.yaml
+    - ./locations.yaml
   objects:
     - $DATA/example_object_data_food.yaml
     - $DATA/example_object_data_drink.yaml
 
 # ROBOTS
 robots:
-  - name: Echo
+  - name: Alan Turing
     radius: 0.1
     location: kitchen
     color: "#CC00CC"
@@ -27,11 +28,18 @@ robots:
       position:
         x: 0.0
         y: 0.0
+    initial_battery_level: 19.54
+
+    # If True, robot starts with no detected objects
+    partial_obs_objects: True
+
+    # If True, robot starts with all hallways detected open
+    partial_obs_hallways: True
+
     max_linear_velocity: 1.0
     max_angular_velocity: 4.0
     max_linear_acceleration: 2.5
     max_angular_acceleration: 10.0
-
 
 
     path_planner:
@@ -50,6 +58,8 @@ robots:
       validate_during_execution: true
       validation_dt: 0.5
       validation_step_dist: 0.025
+    grasp_generator:
+      type: parallel_grasp
     grasping:
       generator: parallel_grasp
       max_width: 0.175
@@ -57,6 +67,30 @@ robots:
       height: 0.04
       width_clearance: 0.01
       depth_clearance: 0.01
+    sensors:
+      lidar:
+        type: lidar
+        update_rate_s: 0.1
+        angle_units: degrees
+        min_angle: -120.0
+        max_angle: 120.0
+        angular_resolution: 5.0
+        max_range_m: 2.0
+
+    start_sensor_threads: true  # If True, automatically starts sensor threads
+
+    action_execution_options:
+      navigate:
+        delay: 0.1
+        success_probability: 0.9
+        rng_seed: 42
+        battery_usage: 1.0
+      pick:
+        delay: 1.0
+        battery_usage: 5.0
+      place:
+        success_probability: 0.75
+        battery_usage: 5.0
 
 # ROOMS
 rooms:
@@ -69,9 +103,7 @@ rooms:
         - [1.5, 1.5]
         - [0.5, 1.5]
     nav_poses:
-      - position:
-          x: 0.75
-          y: 0.5
+      - [0.75, 0.25, 0.0]
     wall_width: 0.2
     color: "red"
 
@@ -94,6 +126,8 @@ rooms:
         - [-1, 3.5]
         - [-3, 3.5]
         - [-2.5, 1]
+    nav_poses:
+      - [-1.75, 2.25, 0.0]
     wall_width: 0.2
     color: [0, 0, 0.6]
 
@@ -108,7 +142,6 @@ rooms:
     wall_width: 0.2
     color: "#3366FF"
 
-  
 
 # HALLWAYS
 hallways:
@@ -124,8 +157,6 @@ hallways:
     room_end: office1
     width: 0.5
     conn_method: auto
-    conn_angle: 0.0
-    offset: 0.8
     is_open: True
     is_locked: False
     color: "dimgray"
@@ -134,11 +165,6 @@ hallways:
     room_end: office1
     width: 0.6
     conn_method: auto
-    conn_points:
-    - [1.5, 0.5]
-    - [2.0, 1.0]
-    - [2.5, 3.0]
-
     is_open: True
     is_locked: False
 
@@ -146,20 +172,13 @@ hallways:
     room_end: office2
     width: 0.6
     conn_method: auto
-    conn_points:
-      - [3.5, 3.25]
-      - [4.0, 2.0]
-      - [4.0, 1.0]
     is_open: true
     is_locked: false
     color: "#444444"
 
   
-
-
 # LOCATIONS
 locations:
-  
   - name: table0
     category: table
     parent: kitchen
@@ -172,29 +191,6 @@ locations:
         angle_units: "degrees"
     is_open: True
     is_locked: True
-
-  - name: charger
-    category: charger
-    parent: office2
-    pose:
-      position:
-        x: 4.4
-        y: 0.5
-    is_open: False
-    is_locked: True
-    is_charger: True
-
-
-  - name: my_desk
-    category: desk
-    parent: office1
-    pose:
-      position:
-        x: 0.525
-        y: 0.4
-      relative_to: office1
-    is_open: True
-    is_locked: False
   
   - name: counter0
     category: counter
@@ -208,7 +204,28 @@ locations:
         angle_units: "degrees"
     is_open: True
     is_locked: True
-    
+
+  - name: desk0
+    category: desk
+    parent: office1
+    pose:
+      position:
+        x: 0.525
+        y: 0.4
+      relative_to: office1
+    is_open: True
+    is_locked: False
+
+  - name: charger0
+    category: charger
+    parent: office2
+    pose:
+      position:
+        x: 4.4
+        y: 0.5
+    is_open: False
+    is_locked: True
+    is_charger: True
 
   - name: trash
     category: trash_can
@@ -225,28 +242,23 @@ locations:
 
 # OBJECTS
 objects:
-  
-
-  - category: apple
-    parent: my_desk
+  # KITCHEN
+  # DESK0
+  - name: apple0
+    category: apple
+    parent: desk0
     pose:
       position:
         x: 0.05
         y: -0.15
-      relative_to: my_desk
+      relative_to: desk0
+  - name: water_bottle0
+    category: water
+    parent: desk0
+  - name: soda0
+    category: coke
+    parent: desk0
 
-  
-
-  - name: fuji
+  - name: apple1
     category: apple
     parent: trash
-
-  
-
-  - category: water
-    parent: my_desk
-
-  - name: soda
-    category: coke
-    parent: my_desk
-
