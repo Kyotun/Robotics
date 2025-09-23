@@ -1,0 +1,21 @@
+# Idea: Put points on the centers of the rooms so that our robot can navigate toward to it.
+waypoint: 
+  footprint: 
+    type: circle
+    radius: 0.05
+    height: 0.0
+  locations:
+    - name: "center"
+      footprint:
+        type: parent
+        padding: 0.0
+  nav_poses:
+    - position:  # left
+        x: -0.5
+        y: 0.0
+    - position:  # right
+        x: 0.5
+        y: 0.0
+      rotation_eul:
+        yaw: 3.14
+  color: [0, 0.35, 0.2]
