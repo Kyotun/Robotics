@@ -14,10 +14,12 @@ Steps:
 import os
 import time
 import argparse
+import threading
 
 # PyRoboSim 
 from pyrobosim.core.robot import Robot
 from pyrobosim.core.world import World
+from pyrobosim.core.room import Room
 from pyrobosim.core.yaml_utils import WorldYamlLoader
 from pyrobosim.gui import start_gui
 from pyrobosim.utils.general import get_data_folder
@@ -44,10 +46,17 @@ def parse_args() -> argparse.Namespace:
 
 # ----------------- World helpers -----------------
 def create_world_from_yaml(fname: str) -> World:
+    return WorldYamlLoader().from_file(f"{fname}.yaml")
     if os.path.isabs(fname) or os.path.exists(fname):
         return WorldYamlLoader().from_file(fname)
     return WorldYamlLoader().from_file(os.path.join(DATA_FOLDER, fname))
 
+
+def getRoomByName(world: World, room_name:str) -> Room | None:
+    for room in world.rooms:
+        if getattr(room, "name", None) == room_name:
+            return room
+    return None
 
 def get_robot(world: World) -> Robot:
     if not world.robots:
@@ -56,7 +65,7 @@ def get_robot(world: World) -> Robot:
 
 
 def room_nav_pose(world: World, room_name: str) -> Pose:
-    room = world.get_room(room_name)
+    room = world.get_room_by_name(room_name)
     if room and room.nav_poses:
         return room.nav_poses[0]
     return Pose(0.0, 0.0)  # fallback
@@ -64,7 +73,7 @@ def room_nav_pose(world: World, room_name: str) -> Pose:
 
 def navigate_to_room(world: World, robot: Robot, room_name: str, block=True):
     goal_pose = room_nav_pose(world, room_name)
-    robot.navigate_to(goal_pose)
+    robot.navigate(goal=goal_pose)
 
     if not block:
         return
@@ -79,10 +88,10 @@ def navigate_to_room(world: World, robot: Robot, room_name: str, block=True):
 def explore_and_find_objects(world: World, robot: Robot):
     """Visit all rooms & record objects discovered in them"""
     discovered = []
-    for room in [r.name for r in world.rooms]:
-        print(f"[EXPLORE] Going to {room}")
-        navigate_to_room(world, robot, room)
-        objs = [obj for obj in world.objects if world.get_parent_room(obj.name) == room]
+    for room in world.rooms:
+        print(f"[EXPLORE] Going to {room.name}")
+        navigate_to_room(world, robot, room.name)
+        objs = [obj for obj in world.objects if obj.parent == room]
         for obj in objs:
             discovered.append((obj.name, obj.category, room, obj.parent))
             print(f"[FOUND] {obj.name} ({obj.category}) in {room}, parent {obj.parent}")
@@ -177,8 +186,6 @@ if __name__ == "__main__":
 
     # --- Load world
     world = create_world_from_yaml(args.world_file)
-    if not args.no_gui:
-        start_gui(world)
 
     robot = get_robot(world)
 
@@ -203,28 +210,32 @@ if __name__ == "__main__":
         validate_during_execution=True,
     ))
   
+    def thread_func():
+            # --- Step 1: Exploration
+        discovered = explore_and_find_objects(world, robot)
 
-    # --- Step 1: Exploration
-    discovered = explore_and_find_objects(world, robot)
+        # --- Step 2: Dynamic problem generation
+        problem_file = generate_dynamic_problem(args.domain_file, discovered, args.drop_location)
 
-    # --- Step 2: Dynamic problem generation
-    problem_file = generate_dynamic_problem(args.domain_file, discovered, args.drop_location)
+        # --- Step 3: Solve with UPF
+        reader = PDDLReader()
+        problem = reader.parse_problem(args.domain_file, problem_file)
 
-    # --- Step 3: Solve with UPF
-    reader = PDDLReader()
-    problem = reader.parse_problem(args.domain_file, problem_file)
+        with OneshotPlanner(name=args.engine, problem_kind=problem.kind) as planner:
+            print(f"[UPF] Using {planner.name}")
+            result = planner.solve(problem)
 
-    with OneshotPlanner(name=args.engine, problem_kind=problem.kind) as planner:
-        print(f"[UPF] Using {planner.name}")
-        result = planner.solve(problem)
+        if result.plan is None:
+            raise RuntimeError("[ERROR] Could not find a plan for dynamic task!")
 
-    if result.plan is None:
-        raise RuntimeError("[ERROR] Could not find a plan for dynamic task!")
+        print("[PLAN] Dynamic plan:")
+        print(result.plan)
 
-    print("[PLAN] Dynamic plan:")
-    print(result.plan)
+        # --- Step 4: Execute
+        execute_plan(world, result.plan)
 
-    # --- Step 4: Execute
-    execute_plan(world, result.plan)
+    threading.Thread(target=thread_func, daemon=True).start()
+    if not args.no_gui:
+        start_gui(world)
 
     print("[DONE] Task 5 completed successfully.")
