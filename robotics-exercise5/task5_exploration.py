@@ -151,7 +151,7 @@ def execute_plan(world: World, plan):
         if name == "move":
             # Plan: (move my_robot from_room to_room)
             _, frm, to = params
-            goal_pose = room_nav_pose(world, to)   # 🟢 convert to a Pose
+            goal_pose = room_nav_pose(world, to)   
             robot.navigate_to(goal_pose)
 
             while getattr(robot.path_executor, "is_executing", False):
@@ -182,7 +182,7 @@ if __name__ == "__main__":
 
     robot = get_robot(world)
 
-    # 🔽 Force attach navigation planner + executor 🔽
+   
     from pyrobosim.navigation.rrt import RRTPlanner
     from pyrobosim.navigation.execution import ConstantVelocityExecutor
 
@@ -202,7 +202,7 @@ if __name__ == "__main__":
         dt=0.1,
         validate_during_execution=True,
     ))
-    # 🔼 END FIX 🔼
+  
 
     # --- Step 1: Exploration
     discovered = explore_and_find_objects(world, robot)
