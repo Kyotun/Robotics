@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import time
 from typing import Any
+import random
 
 # PyRoboSim 
 from pyrobosim.core.robot import Robot
@@ -69,6 +70,24 @@ class WorldHelper():
     def getWorld(self) -> World:
         return self.world
     
+    def getLocationOfObject(self, object:Object) -> Location:
+        world = self.getWorld
+        locations = world.locations
+        for location in locations:
+            # I don't know if this is the best way to define
+            if object.parent.name.startswith(location.name):
+                return location
+        raise Exception(f"Parent of {object.name} cannot found.")
+    
+    def getRoomOfLocation(self, location:Location) -> Room:
+        world = self.getWorld
+        rooms = world.rooms
+        for room in rooms:
+            if location.parent.name.startswith(room.name):
+                return room
+        raise Exception(f"Parent of {location.name} cannot found.")
+
+
     def getRoomCenter(room: Room) -> Pose:
         """Returns the x and y coordinate of the room."""
         xs = [p[0] for p in room.footprint]
@@ -82,6 +101,14 @@ class WorldHelper():
             if getattr(room, "name", None) == room_name:
                 return room
         return None
+    
+
+    def getRoomByCenter(self, name_center_room: str) -> Room | None:
+        world = self.getWorld
+        center_room_name_list = name_center_room.split("_")
+        for room in world.rooms:
+            if room.name in center_room_name_list:
+                return room
 
 
     def getRoomBasePose(self, room:Room) -> Pose:
@@ -254,30 +281,29 @@ class WorldHelper():
 
         # Visit each location
         for i, location in enumerate(locations_to_visit):
-            nav_pose = location.nav_poses[0] if location.nav_poses else location.pose
             print(f"\n---> Visiting location {i+1}/{len(locations_to_visit)}: '{location.name}' in room '{location.get_room_name()}'")
 
-            #let robot navigate to the location
-            action = TaskAction("navigate", target_location=nav_pose)
+            # Let robot navigate to the location
+            action = TaskAction("navigate", target_location=location.name)
             plan = TaskPlan(actions=[action])
             print(f"Executing plan: Navigate to '{location.name}'")
             robot.execute_plan(plan)
             
-            print(f"Navigation success. Programmatically querying objects at '{location.name}'...")
+            print(f"Navigation success. Programmatically querying items at '{location.name}'...")
 
             objects_on_location = []
             for obj in world.objects:
-                    if compare(obj.parent.name,location.name):
+                    if compare(obj.parent.name, location.name):
                         objects_on_location.append(obj)
                         discovered_objects.append(obj)
                     else:
                         continue
 
-            print(objects_on_location)
+            print(f"{location} has: {objects_on_location}")
 
         print("\n-----------------------------------")
         print("PHASE 1: EXPLORATION COMPLETE!")
-        print(f"Discovered a total of {len(discovered_objects)} objects.")
+        print(f"Discovered a total of {len(discovered_objects)} items.")
         print("-----------------------------------")
         return discovered_objects
     
@@ -325,35 +351,14 @@ class WorldHelper():
                 if not target_location_obj:
                     print(f"[ERROR] Cannot find location: {target_loc_name}")
                     break
-
-                nav_pose = None 
-
-                # 1. Check for nav_poses
-                if target_location_obj.nav_poses:
-                    nav_pose = target_location_obj.nav_poses[0]
-                
-                # 2. If no nav_pose, check sub-locations
-                elif hasattr(target_location_obj, 'children') and target_location_obj.children:
-                    for sub_loc in target_location_obj.children:
-                        if sub_loc.nav_poses:
-                            nav_pose = sub_loc.nav_poses[0]
-                            print(f"Found nav_pose in sub-location: '{sub_loc.name}' of '{target_loc_name}'")
-                            break # if found, break the loop
-                
-                # 3.If cannot find nav_pose break
-                if not nav_pose:
-                    print(f"[ERROR] Target location '{target_loc_name}' and "
-                          "its sub-locations have NO navigation poses defined. "
-                          "Aborting plan.")
-                    break 
-                task = TaskAction("navigate", target_location=nav_pose)
+                task = TaskAction("navigate", target_location=target_location_obj)
 
             elif action_name == "pick":
                 # PDDL pick parameters: (robot, object, location)
                 object_name = params[1]
                 target_object_obj = object_map.get(object_name)
                 if not target_object_obj:
-                    print(f"[ERROR] Cannot find object: {object_name}")
+                    print(f"[ERROR] Cannot find item: {object_name}")
                     break
                 task = TaskAction("pick", object=target_object_obj)
 
@@ -370,4 +375,94 @@ class WorldHelper():
                 task_plan = TaskPlan(actions=[task]) #let single action into a plan
                 result = robot.execute_plan(task_plan)
         print("\nPHASE 4: PLAN EXECUTION FINISHED!")
+
+    
+    def getRandomLocation(self) -> Location:
+        world = self.getWorld
+        return random.choice(world.get_locations())
+
+    def generateProblemPDDL(self,
+                            problem_for_pddl:str,
+                            domain_for_pddl:str) -> str:
+        world = self.getWorld
+        robots = world.robots
+        rooms = world.rooms
+        locations = world.locations
+        objects = world.objects
+        hallways = world.hallways
+        first_robot = robots[0]
+        problem_for_pddl = problem_for_pddl
+        domain_for_pddl = domain_for_pddl
+        objects_for_pddl = "EMPTY"
+
+        def generateObjects() -> str:
+            if len(robots) > 1:
+                raise NotImplementedError
+            objects_str = ""
+            objects_str += f"{first_robot.name} - robot\n"
+            for room in rooms:    
+                objects_str += f"{room.name} "
+            objects_str += "- room\n"
+            for location in locations:
+                objects_str += f"{location.name} "
+            objects_str += "- location\n"
+            for obj in objects:
+                objects_str += f"{obj.name} "
+            objects_str += "- item\n" 
+            return objects_str
+        objects_for_pddl = generateObjects()
+
+        def generateInit() -> str:
+            loc_of_robot = self.getRoomByCenter(first_robot.location.name).name
+            init_str = f"\n(at {first_robot.name} {loc_of_robot})\n"
+            init_str += f"(visited {loc_of_robot})\n"
+            init_str += f"(handempty {first_robot.name})\n"
+
+            # Where are the locations?
+            for location in locations:
+                init_str += f"(locationof {location.name} {self.getRoomOfLocation(location=location).name})\n"
+            
+            # Where are the objects?
+            for object in objects:
+                init_str += f"(on {object.name} {self.getLocationOfObject(object=object).name})\n"
+            
+            # Connectivity
+            for hallway in hallways:
+                init_str += f"(connected {hallway.room_start.name} {hallway.room_end.name}) (connected {hallway.room_end.name} {hallway.room_start.name})\n"
+            return init_str
+        init_for_pddl = generateInit()
+
+        def generateGoal() -> str:
+            target_location = self.getRandomLocation()
+            target_str = f"\n(and\n"
+            for object in objects:
+                target_str += f"(on {object.name} {target_location.name})\n"
+            target_str += ")"
+            return target_str
+        goal_for_pddl = generateGoal()
+
+        return f"(define (problem {problem_for_pddl})\n" \
+                f"  (:domain {domain_for_pddl})\n" \
+                "   (:objects\n" \
+                f"       {objects_for_pddl}" \
+                "   )\n" \
+                "   (:init" \
+                f"       {init_for_pddl}" \
+                "   )\n" \
+                "   (:goal" \
+                f"       {goal_for_pddl}" \
+                "   )\n" \
+                ")"
+
+    def writeProblemPDDL(self, pddl_as_str:str) -> str:
+        if not isinstance(pddl_as_str, str):
+            raise TypeError({pddl_as_str}, " should be str.")
+        
+        file_name = "task5_problem.pddl"
+        with open(f"{file_name}", "w") as text_file:
+            text_file.write(pddl_as_str)
+        return file_name
+        
+
+
 

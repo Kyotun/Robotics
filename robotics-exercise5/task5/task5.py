@@ -33,7 +33,6 @@ from cli import parse_args
 if __name__ == "__main__":
     args = parse_args()
     domain_file = args.domain_file
-    problem_file = args.problem_file
     world_helper = WorldHelper(world_file=args.world_file)
     world = world_helper.getWorld
 
@@ -44,7 +43,11 @@ if __name__ == "__main__":
         discovered_objects = world_helper.exploreAndDiscover()
         print(discovered_objects)
 
-        plan = world_helper.solveWithUPF(domain_pddl=domain_file, problem_pddl=problem_file)
+        problem_file = world_helper.generateProblemPDDL(problem_for_pddl="task5",
+                                                        domain_for_pddl="task5-dynamic")
+        
+        problem_file_name = world_helper.writeProblemPDDL(pddl_as_str=problem_file)
+        plan = world_helper.solveWithUPF(domain_pddl=domain_file, problem_pddl=problem_file_name)
         print(plan)
 
         world_helper.executeUPFPlan(plan=plan)

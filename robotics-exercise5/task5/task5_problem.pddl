@@ -1,30 +1,38 @@
 (define (problem task5)
   (:domain task5-dynamic)
-
-  (:objects
-    my_robot - robot
-    kitchen bathroom office1 office2 - room
-    table1 counter1 - location
-    apple1 - object
-  )
-
-  (:init
-    (at my_robot kitchen)
-    (visited kitchen)
-    (locationof table1 bedroom)
-    (locationof counter1 hall)
-    (handempty my_robot)
-    (on apple1 table1)
-
-    ; bidirectional connectivity
-    (connected kitchen bathroom)   (connected bathroom kitchen)
-    (connected kitchen office1)   (connected office1 kitchen)
-    (connected kitchen office2)   (connected office2 kitchen)
-    (connected bathroom office1) (connected office1 bathroom)
-    (connected office1 office2)    (connected office2 office1)
-  )
-
-  (:goal
-    (and (EMPTY_FOR_NOW))
-  )
+   (:objects
+       alan_turing - robot
+kitchen office1 bathroom office2 - room
+table0 counter0 desk0 charger0 trash nav_kitchen nav_office1 nav_bathroom nav_office2 - location
+apple0 water_bottle0 soda0 apple1 - item
+   )
+   (:init       
+(at alan_turing office2)
+(visited office2)
+(handempty alan_turing)
+(locationof table0 kitchen)
+(locationof counter0 bathroom)
+(locationof desk0 office1)
+(locationof charger0 office2)
+(locationof trash kitchen)
+(locationof nav_kitchen kitchen)
+(locationof nav_office1 office1)
+(locationof nav_bathroom bathroom)
+(locationof nav_office2 office2)
+(on apple0 desk0)
+(on water_bottle0 desk0)
+(on soda0 desk0)
+(on apple1 trash)
+(connected kitchen bathroom) (connected bathroom kitchen)
+(connected bathroom office1) (connected office1 bathroom)
+(connected kitchen office1) (connected office1 kitchen)
+(connected office1 office2) (connected office2 office1)
+   )
+   (:goal       
+(and
+(on apple0 table0)
+(on water_bottle0 table0)
+(on soda0 table0)
+(on apple1 table0)
+)   )
 )

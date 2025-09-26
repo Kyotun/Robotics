@@ -20,7 +20,7 @@ metadata:
 
 # ROBOTS
 robots:
-  - name: Alan Turing
+  - name: alan_turing
     radius: 0.1
     location: kitchen
     color: "#CC00CC"
@@ -75,22 +75,22 @@ robots:
         min_angle: -120.0
         max_angle: 120.0
         angular_resolution: 5.0
-        max_range_m: 2.0
+        max_range_m: 3.0
 
     start_sensor_threads: true  # If True, automatically starts sensor threads
 
-    action_execution_options:
-      navigate:
-        delay: 0.1
-        success_probability: 0.9
-        rng_seed: 42
-        battery_usage: 1.0
-      pick:
-        delay: 1.0
-        battery_usage: 5.0
-      place:
-        success_probability: 0.75
-        battery_usage: 5.0
+    # action_execution_options:
+    #   navigate:
+    #     delay: 0.1
+    #     success_probability: 0.9
+    #     rng_seed: 42
+    #     battery_usage: 1.0
+    #   pick:
+    #     delay: 1.0
+    #     battery_usage: 5.0
+    #   place:
+    #     success_probability: 0.75
+    #     battery_usage: 5.0
 
 # ROOMS
 rooms:
