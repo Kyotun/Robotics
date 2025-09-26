@@ -399,44 +399,44 @@ class WorldHelper():
             if len(robots) > 1:
                 raise NotImplementedError
             objects_str = ""
-            objects_str += f"{first_robot.name} - robot\n"
+            objects_str += f"{first_robot.name} - robot\n\t\t"
             for room in rooms:    
                 objects_str += f"{room.name} "
-            objects_str += "- room\n"
+            objects_str += "- room\n\t\t"
             for location in locations:
                 objects_str += f"{location.name} "
-            objects_str += "- location\n"
+            objects_str += "- location\n\t\t"
             for obj in objects:
                 objects_str += f"{obj.name} "
-            objects_str += "- item\n" 
+            objects_str += "- item\n\t\t" 
             return objects_str
         objects_for_pddl = generateObjects()
 
         def generateInit() -> str:
             loc_of_robot = self.getRoomByCenter(first_robot.location.name).name
-            init_str = f"\n(at {first_robot.name} {loc_of_robot})\n"
-            init_str += f"(visited {loc_of_robot})\n"
-            init_str += f"(handempty {first_robot.name})\n"
+            init_str = f"\n\t\t(at {first_robot.name} {loc_of_robot})\n\t\t"
+            init_str += f"(visited {loc_of_robot})\n\t\t"
+            init_str += f"(handempty {first_robot.name})\n\t\t"
 
             # Where are the locations?
             for location in locations:
-                init_str += f"(locationof {location.name} {self.getRoomOfLocation(location=location).name})\n"
+                init_str += f"(locationof {location.name} {self.getRoomOfLocation(location=location).name})\n\t\t"
             
             # Where are the objects?
             for object in objects:
-                init_str += f"(on {object.name} {self.getLocationOfObject(object=object).name})\n"
+                init_str += f"(on {object.name} {self.getLocationOfObject(object=object).name})\n\t\t"
             
             # Connectivity
             for hallway in hallways:
-                init_str += f"(connected {hallway.room_start.name} {hallway.room_end.name}) (connected {hallway.room_end.name} {hallway.room_start.name})\n"
+                init_str += f"(connected {hallway.room_start.name} {hallway.room_end.name}) (connected {hallway.room_end.name} {hallway.room_start.name})\n\t\t"
             return init_str
         init_for_pddl = generateInit()
 
         def generateGoal() -> str:
             target_location = self.getRandomLocation()
-            target_str = f"\n(and\n"
+            target_str = f"\n\t\t(and\n\t\t\t"
             for object in objects:
-                target_str += f"(on {object.name} {target_location.name})\n"
+                target_str += f"(on {object.name} {target_location.name})\n\t\t\t"
             target_str += ")"
             return target_str
         goal_for_pddl = generateGoal()
@@ -444,13 +444,13 @@ class WorldHelper():
         return f"(define (problem {problem_for_pddl})\n" \
                 f"  (:domain {domain_for_pddl})\n" \
                 "   (:objects\n" \
-                f"       {objects_for_pddl}" \
+                f"\t\t{objects_for_pddl}" \
                 "   )\n" \
                 "   (:init" \
-                f"       {init_for_pddl}" \
+                f"\t\t{init_for_pddl}" \
                 "   )\n" \
                 "   (:goal" \
-                f"       {goal_for_pddl}" \
+                f"\t\t{goal_for_pddl}" \
                 "   )\n" \
                 ")"
 
