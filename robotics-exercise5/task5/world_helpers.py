@@ -331,10 +331,6 @@ class WorldHelper():
         world = self.getWorld
         robot = world.robots[0]
 
-        # Save the locations and objects as dict for speed up
-        location_map = {loc.name: loc for loc in world.locations}
-        object_map = {obj.name: obj for obj in world.objects}
-
         # Iterate through each action in the UPF plan
         for i, action in enumerate(plan.actions):
             action_name = action.action.name
@@ -345,35 +341,26 @@ class WorldHelper():
             task = None
             # Core translation logic: map PDDL actions to PyRoboSim actions
             if action_name == "move":
-                # PDDL move parameters: (robot, from_location, to_location)
-                target_loc_name = params[2]
-                target_location_obj = location_map.get(target_loc_name)
-                if not target_location_obj:
-                    print(f"[ERROR] Cannot find location: {target_loc_name}")
-                    break
-                task = TaskAction("navigate", target_location=target_location_obj)
+                # PDDL move parameters: (robot, from_room, to_room)
+                target_room_name = "nav_" + params[2]
+                print(target_room_name)
+                task = TaskAction("navigate", target_location=target_room_name)
 
             elif action_name == "pick":
-                # PDDL pick parameters: (robot, object, location)
-                object_name = params[1]
-                target_object_obj = object_map.get(object_name)
-                if not target_object_obj:
-                    print(f"[ERROR] Cannot find item: {object_name}")
-                    break
-                task = TaskAction("pick", object=target_object_obj)
+                # PDDL pick parameters: (robot, item, location, room)
+                target_object_name = params[1]
+                task = TaskAction("pick", object=target_object_name)
 
             elif action_name == "place": 
-                target_loc_name = params[2]
-                target_location_obj = location_map.get(target_loc_name)
-                if target_location_obj:
-                    print(f"[ERROR] Cannot find location: {target_loc_name}")
-                    break
-                task = TaskAction("place", target_location=target_location_obj)
+                # PDDL place parameters: (robot, item, location, room)
+                target_location_name = params[2]
+                task = TaskAction("place", target_location=target_location_name)
             
-            # Execute if task found
-            if task:
-                task_plan = TaskPlan(actions=[task]) #let single action into a plan
-                result = robot.execute_plan(task_plan)
+            # Execute if task not found raise error
+            if not task:
+                raise Exception("Task couldn't find while executing UPF.")
+            task_plan = TaskPlan(actions=[task]) #let single action into a plan
+            result = robot.execute_plan(task_plan)
         print("\nPHASE 4: PLAN EXECUTION FINISHED!")
 
     
@@ -393,7 +380,6 @@ class WorldHelper():
         first_robot = robots[0]
         problem_for_pddl = problem_for_pddl
         domain_for_pddl = domain_for_pddl
-        objects_for_pddl = "EMPTY"
 
         def generateObjects() -> str:
             if len(robots) > 1:
