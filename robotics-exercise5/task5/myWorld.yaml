@@ -1,0 +1,265 @@
+##########################
+# Test world description #
+##########################
+
+# WORLD PARAMETERS
+params:
+  name: my_World
+  object_radius: 0.0375
+  wall_height: 2.0
+
+# METADATA: Describes information about locations and objects
+metadata:
+  locations:
+    - $DATA/example_location_data_furniture.yaml
+    - $DATA/example_location_data_accessories.yaml
+    - ./locations.yaml
+  objects:
+    - $DATA/example_object_data_food.yaml
+    - $DATA/example_object_data_drink.yaml
+
+# ROBOTS
+robots:
+  - name: alan_turing
+    radius: 0.1
+    location: kitchen
+    color: "#CC00CC"
+    pose:
+      position:
+        x: 0.0
+        y: 0.0
+    initial_battery_level: 19.54
+
+    # If True, robot starts with no detected objects
+    partial_obs_objects: True
+
+    # If True, robot starts with all hallways detected open
+    partial_obs_hallways: True
+
+    max_linear_velocity: 1.0
+    max_angular_velocity: 4.0
+    max_linear_acceleration: 2.5
+    max_angular_acceleration: 10.0
+
+
+    path_planner:
+      type: rrt
+      collision_check_step_dist: 0.025
+      max_connection_dist: 0.5
+      bidirectional: true
+      rrt_star: true
+      rewire_radius: 1.5
+      compress_path: false
+    path_executor:
+      type: constant_velocity
+      linear_velocity: 1.0
+      max_angular_velocity: 4.0
+      dt: 0.1
+      validate_during_execution: true
+      validation_dt: 0.5
+      validation_step_dist: 0.025
+    grasp_generator:
+      type: parallel_grasp
+    grasping:
+      generator: parallel_grasp
+      max_width: 0.175
+      depth: 0.1
+      height: 0.04
+      width_clearance: 0.01
+      depth_clearance: 0.01
+    sensors:
+      lidar:
+        type: lidar
+        update_rate_s: 0.1
+        angle_units: degrees
+        min_angle: -120.0
+        max_angle: 120.0
+        angular_resolution: 5.0
+        max_range_m: 3.0
+
+    start_sensor_threads: true  # If True, automatically starts sensor threads
+
+    # action_execution_options:
+    #   navigate:
+    #     delay: 0.1
+    #     success_probability: 0.9
+    #     rng_seed: 42
+    #     battery_usage: 1.0
+    #   pick:
+    #     delay: 1.0
+    #     battery_usage: 5.0
+    #   place:
+    #     success_probability: 0.75
+    #     battery_usage: 5.0
+
+# ROOMS
+rooms:
+  - name: kitchen
+    footprint:
+      type: polygon
+      coords:
+        - [-1, -1]
+        - [1.5, -1]
+        - [1.5, 1.5]
+        - [0.5, 1.5]
+    nav_poses:
+      - [0.75, 0.25, 0.0]
+    wall_width: 0.2
+    color: "red"
+
+  - name: office1
+    footprint:
+      type: box
+      dims: [1.75, 1.5]
+    pose:
+      position:
+        x: 2.625
+        y: 3.25
+    wall_width: 0.2
+    color: "#009900"
+
+  - name: bathroom
+    footprint:
+      type: polygon
+      coords:
+        - [-1, 1]
+        - [-1, 3.5]
+        - [-3, 3.5]
+        - [-2.5, 1]
+    nav_poses:
+      - [-1.75, 2.25, 0.0]
+    wall_width: 0.2
+    color: [0, 0, 0.6]
+
+  - name: office2
+    footprint:
+      type: box
+      dims: [2.0, 1.5]
+    pose:
+      position:
+        x: 4.0
+        y: 1.0
+    wall_width: 0.2
+    color: "#3366FF"
+
+
+# HALLWAYS
+hallways:
+  - room_start: kitchen
+    room_end: bathroom
+    width: 0.7
+    conn_method: auto
+    is_open: True
+    is_locked: False
+    color: "#666666"
+
+  - room_start: bathroom
+    room_end: office1
+    width: 0.5
+    conn_method: auto
+    is_open: True
+    is_locked: False
+    color: "dimgray"
+
+  - room_start: kitchen
+    room_end: office1
+    width: 0.6
+    conn_method: auto
+    is_open: True
+    is_locked: False
+
+  - room_start: office1
+    room_end: office2
+    width: 0.6
+    conn_method: auto
+    is_open: true
+    is_locked: false
+    color: "#444444"
+
+  
+# LOCATIONS
+locations:
+  - name: table0
+    category: table
+    parent: kitchen
+    pose:
+      position:
+        x: 0.9
+        y: -0.5
+      rotation_eul:
+        yaw: -90.0
+        angle_units: "degrees"
+    is_open: True
+    is_locked: False
+  
+  - name: counter0
+    category: counter
+    parent: bathroom
+    pose:
+      position:
+        x: -2.45
+        y: 2.5
+      rotation_eul:
+        yaw: 101.2
+        angle_units: "degrees"
+    is_open: True
+    is_locked: False
+
+  - name: desk0
+    category: desk
+    parent: office1
+    pose:
+      position:
+        x: 0.525
+        y: 0.4
+      relative_to: office1
+    is_open: True
+    is_locked: False
+
+  - name: charger0
+    category: charger
+    parent: office2
+    pose:
+      position:
+        x: 4.4
+        y: 0.5
+    is_open: True
+    is_locked: False
+    is_charger: True
+
+  - name: trash
+    category: trash_can
+    parent: kitchen
+    pose:
+      position:
+        x: 0.9
+        y: 1.1
+      rotation_eul:
+        yaw: 90.0
+      angle_units: "degrees"
+    # These options are for container like objects
+    is_open: True # If true, robot can put/take objects
+    is_locked: False
+
+# OBJECTS
+objects:
+  # KITCHEN
+  # DESK0
+  - name: apple0
+    category: apple
+    parent: desk0
+    pose:
+      position:
+        x: 0.05
+        y: -0.15
+      relative_to: desk0
+  - name: water_bottle0
+    category: water
+    parent: desk0
+  - name: soda0
+    category: coke
+    parent: desk0
+
+  - name: apple1
+    category: apple
+    parent: trash
