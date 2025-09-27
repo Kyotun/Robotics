@@ -21,7 +21,7 @@ import time
 from typing import Tuple
 import threading
 
-# PyRoboSim 
+# PyRoboSim
 from pyrobosim.gui import start_gui
 
 # Unified Planning
@@ -52,9 +52,11 @@ if __name__ == "__main__":
         with OneshotPlanner(problem_kind=problem.kind) as planner:
             print(f"[UPF] Auto-picked engine: {planner.name}")
             result = planner.solve(problem)
-    
+
     if result.plan is None:
-        raise RuntimeError("No plan found. Check your domain/problem files and connectivity.")
+        raise RuntimeError(
+            "No plan found. Check your domain/problem files and connectivity."
+        )
 
     world_helper = WorldHelper(args.world_file)
     world = world_helper.getWorld
@@ -77,14 +79,14 @@ if __name__ == "__main__":
     def thread_func():
         actions = []
         for frm, to in plan_steps:
-            target_loc = f"nav_{to}"                 # concrete location name
+            target_loc = f"nav_{to}"  # concrete location name
             actions.append(TaskAction("navigate", target_location=target_loc))
 
         plan = TaskPlan(actions=actions)
         robot.task_plan = plan
         result, num_completed = robot.execute_plan(robot.task_plan)
         print(f"Exec result: {result}, steps: {num_completed}")
-    
+
     threading.Thread(target=thread_func, daemon=True).start()
 
     # Start GUI unless headless

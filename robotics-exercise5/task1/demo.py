@@ -3,6 +3,7 @@
 """
 Test script showing how to build a world and use it with PyRoboSim.
 """
+
 import os
 import argparse
 
@@ -66,9 +67,8 @@ def create_world(multirobot: bool = False) -> World:
         name="office2",
         pose=Pose(x=4.0, y=1.0),
         footprint=office2_coords,
-        color="#3366FF"
+        color="#3366FF",
     )
-    
 
     # Add hallways between the rooms
     world.add_hallway(
@@ -96,10 +96,8 @@ def create_world(multirobot: bool = False) -> World:
         width=0.6,
         conn_method="points",
         conn_points=[(3.5, 3.25), (4.0, 2.0), (4.0, 1.0)],
-        color="#444444"
+        color="#444444",
     )
-
-   
 
     # Add locations
     table = world.add_location(
@@ -111,8 +109,6 @@ def create_world(multirobot: bool = False) -> World:
         Pose(x=0.525, y=0.4, z=0.0, yaw=0.0), "office1"
     )
     desk = world.add_location(category="desk", parent="office1", pose=desk_pose)
-
-   
 
     counter = world.add_location(
         category="counter",

@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 import time
 
-# PyRoboSim 
+# PyRoboSim
 from pyrobosim.core.robot import Robot
 from pyrobosim.core.locations import Location
 from pyrobosim.core.world import World
@@ -20,8 +20,8 @@ from pyrobosim.utils.pose import Pose
 from pyrobosim.utils.general import get_data_folder
 
 
-class WorldHelper():
-    def __init__(self, world_file:str = None):
+class WorldHelper:
+    def __init__(self, world_file: str = None):
         self.data_folder: str = get_data_folder()
         self.world_file: str = world_file
         self.world: World = None
@@ -41,40 +41,37 @@ class WorldHelper():
     @property
     def multiRobot(self) -> bool:
         return self.multi_robot
-    
+
     @property
     def partialObsObjects(self) -> bool:
         return self.partial_obs_objects
-    
+
     @property
     def getWorld(self) -> World:
         return self.world
-    
+
     def getRoomCenter(room: Room) -> Pose:
         """Returns the x and y coordinate of the room."""
         xs = [p[0] for p in room.footprint]
         ys = [p[1] for p in room.footprint]
-        return Pose(x=sum(xs)/len(xs), y=sum(ys)/len(ys), yaw=0.0)
-    
+        return Pose(x=sum(xs) / len(xs), y=sum(ys) / len(ys), yaw=0.0)
 
-    def getRoomByName(self, room_name:str) -> Room | None:
+    def getRoomByName(self, room_name: str) -> Room | None:
         world = self.getWorld
         for room in world.rooms:
             if getattr(room, "name", None) == room_name:
                 return room
         return None
 
-
-    def getRoomBasePose(self, room:Room) -> Pose:
-         # 1) explicit nav pose
+    def getRoomBasePose(self, room: Room) -> Pose:
+        # 1) explicit nav pose
         navs = getattr(room, "nav_poses", None)
         if navs:
             return navs[0]
         # 2) centroid fallback
         xs = [p[0] for p in room.footprint]
         ys = [p[1] for p in room.footprint]
-        return Pose(x=sum(xs)/len(xs), y=sum(ys)/len(ys), yaw=0.0)
-
+        return Pose(x=sum(xs) / len(xs), y=sum(ys) / len(ys), yaw=0.0)
 
     def getRobot(self, preferred_name: str = "") -> Robot:
         world = self.getWorld
@@ -82,11 +79,12 @@ class WorldHelper():
             for robot in world.robots:
                 if robot.name == preferred_name:
                     return robot
-            raise ValueError(f"Robot '{preferred_name}' not found. Available: {[robot.name for robot in world.robots]}")
+            raise ValueError(
+                f"Robot '{preferred_name}' not found. Available: {[robot.name for robot in world.robots]}"
+            )
         if not world.robots:
             raise RuntimeError("No robots in world. Add one with world.add_robot(...)")
         return world.robots[0]
-
 
     def getRoomNavPose(self, room_name: str) -> Pose:
         """Pick a reasonable navigation target pose for a room."""
@@ -97,12 +95,12 @@ class WorldHelper():
             raise ValueError(
                 f"Room '{room_name}' not found. Available rooms: {available}"
             )
-        
+
             # Prefer explicit nav pose
         nav_poses = getattr(room, "nav_poses", None)
         if nav_poses and len(nav_poses) > 0 and isinstance(nav_poses[0], Pose):
             return nav_poses[0]
-    
+
         # Fallback: compute centroid of footprint
         fp = getattr(room, "footprint", None)
         if fp and len(fp) > 0:
@@ -114,8 +112,9 @@ class WorldHelper():
         # but return a real Pose instead of None to avoid "no goal" warnings
         return Pose(x=0.0, y=0.0, yaw=0.0)
 
-
-    def addNavLocation(self, room_name: str, nav_name: str, base: Pose) -> Location | None:
+    def addNavLocation(
+        self, room_name: str, nav_name: str, base: Pose
+    ) -> Location | None:
         """
         Try to place a small, collision-free nav marker in 'room_name'.
         We reuse existing metadata categories (first 'desk', then 'table'),
@@ -123,17 +122,18 @@ class WorldHelper():
         """
         # radial/off-grid offsets to escape furniture & walls
         radii = [0.0, 0.2, -0.2, 0.35, -0.35, 0.5, -0.5, 0.65, -0.65]
-        dirs  = [(1,0),(0,1),(-1,0),(0,-1),(1,1),(-1,1),(1,-1),(-1,-1)]
+        dirs = [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)]
         world = self.getWorld
         for r in radii:
             for dx, dy in dirs:
-                pose = Pose(x=base.x + dx*r, y=base.y + dy*r, yaw=0.0)
-                loc = world.add_location(category="waypoint", parent=room_name, name=nav_name, pose=pose)
+                pose = Pose(x=base.x + dx * r, y=base.y + dy * r, yaw=0.0)
+                loc = world.add_location(
+                    category="waypoint", parent=room_name, name=nav_name, pose=pose
+                )
                 if loc is not None:
                     return loc
         return None
 
-    
     def ensureRoomNavLocations(self) -> None:
         """
         Create a named location inside each room to use as a navigation target.
@@ -145,13 +145,14 @@ class WorldHelper():
             # Skip if already present
             if any(getattr(loc, "name", "") == nav_name for loc in world.locations):
                 continue
-            
+
             base = self.getRoomBasePose(room)
             loc = self.addNavLocation(room.name, nav_name, base)
             if loc is None:
-                print(f"[WARN] Could not place '{nav_name}' (room crowded?). "
-                    f"Consider adding room.nav_poses for '{room.name}'.")
-
+                print(
+                    f"[WARN] Could not place '{nav_name}' (room crowded?). "
+                    f"Consider adding room.nav_poses for '{room.name}'."
+                )
 
     def executeVisitAll(self, plan_steps: list):
         """Map PDDL 'move(my_robot, from, to)' to PyRoboSim navigation."""
@@ -164,13 +165,15 @@ class WorldHelper():
             _, frm, to = params
             print(f"[EXEC] move: {frm} -> {to}")
             self.navigateToRoom(world, robot, to, block=True)
-    
-    def navigateToRoom(self,
-                        robot: Robot,
-                        room_name: str,
-                        block: bool = True,
-                        dt: float = 0.05,
-                        timeout_s: float = 60.0) -> None:
+
+    def navigateToRoom(
+        self,
+        robot: Robot,
+        room_name: str,
+        block: bool = True,
+        dt: float = 0.05,
+        timeout_s: float = 60.0,
+    ) -> None:
         """Command the robot to navigate to a room's nav pose. Poll the world until idle."""
         world = self.getWorld
         goal_pose = self.getRoomNavPose(room_name)
@@ -180,13 +183,17 @@ class WorldHelper():
                 f"[navigateToRoom] Goal pose is None for room '{room_name}'. "
                 f"Available rooms: {available}"
             )
-        
-        print(f"[EXEC] navigate_to {room_name} -> Pose(x={goal_pose.x:.3f}, y={goal_pose.y:.3f}, yaw={getattr(goal_pose, 'yaw', 0.0)})")
+
+        print(
+            f"[EXEC] navigate_to {room_name} -> Pose(x={goal_pose.x:.3f}, y={goal_pose.y:.3f}, yaw={getattr(goal_pose, 'yaw', 0.0)})"
+        )
 
         # Sanity: make sure robot has a path planner
         if getattr(robot, "path_planner", None) is None:
-            raise RuntimeError("[navigateToRoom] robot.path_planner is None. Set RRT/PRM/A* before navigating.")
-    
+            raise RuntimeError(
+                "[navigateToRoom] robot.path_planner is None. Set RRT/PRM/A* before navigating."
+            )
+
         robot.navigate(goal_pose)
 
         t0 = time.time()
@@ -194,7 +201,9 @@ class WorldHelper():
             # Check if executor exposes an "is_executing" flag
             busy = True
             try:
-                if hasattr(robot, "path_executor") and hasattr(robot.path_executor, "is_executing"):
+                if hasattr(robot, "path_executor") and hasattr(
+                    robot.path_executor, "is_executing"
+                ):
                     busy = robot.path_executor.is_executing
             except Exception:
                 busy = True
@@ -207,7 +216,6 @@ class WorldHelper():
             if time.time() - t0 > timeout_s:
                 print(f"[WARN] Timeout navigating to {room_name}")
                 break
-
 
     def createWorldFromYaml(self) -> World:
         self.world = WorldYamlLoader().from_file(f"./{self.world_file}.yaml")

@@ -3,6 +3,7 @@
 """
 Test script showing how to build a world and use it with PyRoboSim.
 """
+
 import os
 import threading
 import argparse
@@ -68,9 +69,8 @@ def create_world(multirobot: bool = False) -> World:
         name="office2",
         pose=Pose(x=4.0, y=1.0),
         footprint=office2_coords,
-        color="#3366FF"
+        color="#3366FF",
     )
-    
 
     # Add hallways between the rooms
     world.add_hallway(
@@ -98,10 +98,8 @@ def create_world(multirobot: bool = False) -> World:
         width=0.6,
         conn_method="points",
         conn_points=[(3.5, 3.25), (4.0, 2.0), (4.0, 1.0)],
-        color="#444444"
+        color="#444444",
     )
-
-   
 
     # Add locations
     table = world.add_location(
@@ -113,8 +111,6 @@ def create_world(multirobot: bool = False) -> World:
         Pose(x=0.525, y=0.4, z=0.0, yaw=0.0), "office1"
     )
     desk = world.add_location(category="desk", parent="office1", pose=desk_pose)
-
-   
 
     counter = world.add_location(
         category="counter",
@@ -224,6 +220,7 @@ def create_world(multirobot: bool = False) -> World:
 def create_world_from_yaml(world_file: str) -> World:
     return WorldYamlLoader().from_file(os.path.join(data_folder, world_file))
 
+
 def execute_plan(world: World):
     robot = world.robots[0]
 
@@ -232,7 +229,7 @@ def execute_plan(world: World):
         TaskAction("detect", object="water1"),
         TaskAction("pick", object="water1"),
         TaskAction("navigate", source_location="desk0", target_location="counter0"),
-        TaskAction("place", object="water1")
+        TaskAction("place", object="water1"),
     ]
     plan = TaskPlan(actions=actions)
     robot.task_plan = plan  # Attach plan for GUI visualization
@@ -241,6 +238,7 @@ def execute_plan(world: World):
     result, num_completed = robot.execute_plan(robot.task_plan)
     print(f"Plan result: {result}")
     print(f"Number of actions completed: {num_completed}")
+
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments"""
@@ -279,9 +277,9 @@ if __name__ == "__main__":
     else:
         world = create_world_from_yaml(args.world_file)
 
-    
     # Start the program either as ROS node or standalone.
     def thread_func():
         execute_plan(world=world)
+
     threading.Thread(target=thread_func, daemon=True).start()
     start_gui(world)

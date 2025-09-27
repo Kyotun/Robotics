@@ -19,7 +19,7 @@ import argparse
 import time
 from typing import Tuple
 
-# PyRoboSim 
+# PyRoboSim
 from pyrobosim.gui import start_gui
 
 # Unified Planning
@@ -43,16 +43,20 @@ if __name__ == "__main__":
         discovered_objects = world_helper.exploreAndDiscover()
         print(discovered_objects)
 
-        problem_file = world_helper.generateProblemPDDL(problem_for_pddl="task5",
-                                                        domain_for_pddl="task5-dynamic")
-        
+        problem_file = world_helper.generateProblemPDDL(
+            problem_for_pddl="task5", domain_for_pddl="task5-dynamic"
+        )
+
         problem_file_name = world_helper.writeProblemPDDL(pddl_as_str=problem_file)
-        plan = world_helper.solveWithUPF(domain_pddl=domain_file, problem_pddl=problem_file_name)
+        plan = world_helper.solveWithUPF(
+            domain_pddl=domain_file, problem_pddl=problem_file_name
+        )
         print(plan)
 
         world_helper.executeUPFPlan(plan=plan)
 
     import threading
+
     threading.Thread(target=thread_func, daemon=True).start()
     start_gui(world)
     print("[DONE] execution finished.")
