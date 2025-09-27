@@ -4,6 +4,7 @@
 Test script showing how to build a world and use it with PyRoboSim.
 """
 import os
+import threading
 import argparse
 
 from pyrobosim.core.robot import Robot
@@ -280,5 +281,7 @@ if __name__ == "__main__":
 
     
     # Start the program either as ROS node or standalone.
+    def thread_func():
+        execute_plan(world=world)
+    threading.Thread(target=thread_func, daemon=True).start()
     start_gui(world)
-    execute_plan(world)

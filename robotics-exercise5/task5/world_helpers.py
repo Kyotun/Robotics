@@ -1,9 +1,15 @@
 import os
+from pathlib import Path
 import time
+from typing import Any
+import random
 
 # PyRoboSim 
 from pyrobosim.core.robot import Robot
+from pyrobosim.core.objects import Object
+from pyrobosim.core.locations import Location
 from pyrobosim.core.world import World
+from pyrobosim.core.room import Room
 from pyrobosim.core.yaml_utils import WorldYamlLoader
 from pyrobosim.manipulation import GraspGenerator, ParallelGraspProperties
 from pyrobosim.navigation.execution import ConstantVelocityExecutor
@@ -12,19 +18,29 @@ from pyrobosim.navigation.prm import PRMPlanner
 from pyrobosim.navigation.rrt import RRTPlanner
 from pyrobosim.sensors.lidar import Lidar2D
 from pyrobosim.utils.pose import Pose
+from pyrobosim.planning.actions import TaskAction, TaskPlan
+
 
 # Unified Planning
+import unified_planning as up
 from pyrobosim.utils.general import get_data_folder
+from unified_planning.io import PDDLReader
+from unified_planning.shortcuts import OneshotPlanner
 
 
 class WorldHelper():
-    def __init__(self, world_file:str = None):
-        self.data_folder: str = get_data_folder()
-        self.world_file: str = world_file
-        self.world: World = None
-        self.multi_robot: bool = False
-        self.partial_obs_objects: bool = False
-        self.checkWorldInit
+    def __init__(self, world_file:str = None,
+                 domain_pddl:str = None,
+                 problem_pddl:str = None):
+        self.data_folder:str = get_data_folder()
+        self.world_file:str = world_file
+        self.domain_pddl:str = domain_pddl
+        self.problem_pddl:str = problem_pddl
+        self.world:World = None
+        self.multi_robot:bool = False
+        self.partial_obs_objects:bool = True
+        self.createWorldFromYaml()
+        self.ensureRoomNavLocations()
 
     @property
     def dataFolder(self) -> str:
@@ -34,6 +50,14 @@ class WorldHelper():
     def worldFile(self) -> str:
         return self.world_file
 
+    @property
+    def problemPDDL(self) -> str:
+        return self.problem_pddl
+    
+    @property
+    def domainPDDL(self) -> str:
+        return self.domain_pddl
+     
     @property
     def multiRobot(self) -> bool:
         return self.multi_robot
@@ -46,7 +70,89 @@ class WorldHelper():
     def getWorld(self) -> World:
         return self.world
     
+
+    def updateAllObjects(self) -> None:
+        """Detects all objects in World."""
+        world = self.getWorld
+        objects = world.objects
+        robot = world.robots[0]
+        for object in objects:
+            action = TaskAction("detect", object=object.name)
+            plan = TaskPlan(actions=[action])
+            robot.execute_plan(plan=plan)
+
+    
+    def updateObject(self, obj_name: str ) -> None:
+        """Detects the object given with name. Preassumption that robot is at target location."""
+        world = self.getWorld
+        objects = world.objects
+        robot = world.robots[0]
+        for object in objects:
+            if object.name == obj_name:
+                action = TaskAction("detect", object=obj_name)
+                plan = TaskPlan(actions=[action])
+                robot.execute_plan(plan=plan)
+
+    
+    def getLocationOfObject(self, object:Object) -> Location:
+        """Returns the location of the object if exists."""
+        world = self.getWorld
+        locations = world.locations
+        for location in locations:
+            # I don't know if this is the best way to define but works.
+            if object.parent.name.startswith(location.name):
+                return location
+        raise Exception(f"Parent of {object.name} cannot found.")
+    
+    def getRoomOfLocation(self, location:Location) -> Room:
+        """Returns the room of location."""
+        world = self.getWorld
+        rooms = world.rooms
+        for room in rooms:
+            if location.parent.name.startswith(room.name):
+                return room
+        raise Exception(f"Parent of {location.name} cannot found.")
+
+
+    def getRoomCenter(room: Room) -> Pose:
+        """Returns the x and y coordinate of the room."""
+        xs = [p[0] for p in room.footprint]
+        ys = [p[1] for p in room.footprint]
+        return Pose(x=sum(xs)/len(xs), y=sum(ys)/len(ys), yaw=0.0)
+    
+
+    def getRoomByName(self, room_name:str) -> Room | None:
+        """Returns the room object with help of its name."""
+        world = self.getWorld
+        for room in world.rooms:
+            if getattr(room, "name", None) == room_name:
+                return room
+        return None
+    
+
+    def getRoomByCenter(self, name_center_room: str) -> Room | None:
+        """Returns the room with help of its center name."""
+        world = self.getWorld
+        center_room_name_list = name_center_room.split("_")
+        for room in world.rooms:
+            if room.name in center_room_name_list:
+                return room
+
+
+    def getRoomBasePose(self, room:Room) -> Pose:
+        """Returns the nav_pose of room."""
+         # 1) explicit nav pose
+        navs = getattr(room, "nav_poses", None)
+        if navs:
+            return navs[0]
+        # 2) centroid fallback
+        xs = [p[0] for p in room.footprint]
+        ys = [p[1] for p in room.footprint]
+        return Pose(x=sum(xs)/len(xs), y=sum(ys)/len(ys), yaw=0.0)
+
+
     def getRobot(self, preferred_name: str = "") -> Robot:
+        """Returns the Robot with given name."""
         world = self.getWorld
         if preferred_name:
             for robot in world.robots:
@@ -57,276 +163,281 @@ class WorldHelper():
             raise RuntimeError("No robots in world. Add one with world.add_robot(...)")
         return world.robots[0]
 
-    def executeVisitAll(self, plan_steps: list):
-        """Map PDDL 'move(my_robot, from, to)' to PyRoboSim navigation."""
-        world = self.getWorld
-        robot = self.getRobot(world)
-        for name, params in plan_steps:
-            if name != "move":
-                print(f"[WARN] Skipping non-move action: {name}")
-                continue
-            _, frm, to = params
-            print(f"[EXEC] move: {frm} -> {to}")
-            self.navigateToRoom(world, robot, to, block=True)
-    
-    def navigateToRoom(self,
-                        robot: Robot,
-                        room_name: str,
-                        block: bool = True,
-                        dt: float = 0.05,
-                        timeout_s: float = 60.0) -> None:
-        """Command the robot to navigate to a room's nav pose. Poll the world until idle."""
-        world = self.getWorld
-        goal_pose = self.getRoomNavPose(room_name)
-        robot.navigate_to(goal_pose)
 
-        if not block:
-            return
-
-        t0 = time.time()
-        while True:
-            # Check if executor exposes an "is_executing" flag
-            busy = True
-            try:
-                if hasattr(robot, "path_executor") and hasattr(robot.path_executor, "is_executing"):
-                    busy = robot.path_executor.is_executing
-            except Exception:
-                busy = True
-
-            if not busy:
-                break
-
-            # Step simulation or sleep if GUI thread owns stepping
-            try:
-                world.update(dt)
-            except Exception:
-                time.sleep(dt)
-
-            if time.time() - t0 > timeout_s:
-                print(f"[WARN] Timeout navigating to {room_name}")
-                break
-    
     def getRoomNavPose(self, room_name: str) -> Pose:
         """Pick a reasonable navigation target pose for a room."""
         world = self.getWorld
-        room = world.get_room(room_name)
+        room = self.getRoomByName(room_name)
         if room is None:
-            return Pose(0.0, 0.0)
-        # Prefer an explicitly defined nav pose
-        try:
-            if room.nav_poses:
-                return room.nav_poses[0]
-        except Exception:
-            pass
-        # Fallback: centroid of footprint
-        try:
-            xs = [fprnt[0] for fprnt in room.footprint]
-            ys = [fprnt[1] for fprnt in room.footprint]
-            return Pose(sum(xs) / len(xs), sum(ys) / len(ys))
-        except Exception:
-            return Pose(0.0, 0.0)
+            available = [r.name for r in world.rooms]
+            raise ValueError(
+                f"Room '{room_name}' not found. Available rooms: {available}"
+            )
         
-    def checkWorldInit(self) -> None:
-        """If user gave world_file we create it from yaml file, otherwise use createWorld function."""
-        self.world = self.createWorld if not self.worldFile else self.createWorldFromYaml
+            # Prefer explicit nav pose
+        nav_poses = getattr(room, "nav_poses", None)
+        if nav_poses and len(nav_poses) > 0 and isinstance(nav_poses[0], Pose):
+            return nav_poses[0]
+    
+        # Fallback: compute centroid of footprint
+        fp = getattr(room, "footprint", None)
+        if fp and len(fp) > 0:
+            xs = [p[0] for p in fp]
+            ys = [p[1] for p in fp]
+            return Pose(x=sum(xs) / len(xs), y=sum(ys) / len(ys), yaw=0.0)
+
+        # Ultimate fallback — should never happen on valid rooms
+        # but return a real Pose instead of None to avoid "no goal" warnings
+        return Pose(x=0.0, y=0.0, yaw=0.0)
+
+
+    def addNavLocation(self, room_name: str, nav_name: str, base: Pose) -> Location | None:
+        """
+        Try to place a small, collision-free nav marker in 'room_name'.
+        We reuse existing metadata categories (first 'desk', then 'table'),
+        because you already load those in Task 1.
+        """
+        # radial/off-grid offsets to escape furniture & walls
+        radii = [0.0, 0.2, -0.2, 0.35, -0.35, 0.5, -0.5, 0.65, -0.65]
+        dirs  = [(1,0),(0,1),(-1,0),(0,-1),(1,1),(-1,1),(1,-1),(-1,-1)]
+        world = self.getWorld
+        for r in radii:
+            for dx, dy in dirs:
+                pose = Pose(x=base.x + dx*r, y=base.y + dy*r, yaw=0.0)
+                loc = world.add_location(category="waypoint", parent=room_name, name=nav_name, pose=pose)
+                if loc is not None:
+                    return loc
+        return None
+
+
+    def ensureRoomNavLocations(self) -> None:
+        """
+        Create a named location inside each room to use as a navigation target.
+        Reuse any existing location category from your metadata (e.g., 'desk' or 'table').
+        """
+        world = self.getWorld
+        for room in world.rooms:
+            nav_name = f"nav_{room.name}"
+            # Skip if already present
+            if any(getattr(loc, "name", "") == nav_name for loc in world.locations):
+                continue
+            
+            base = self.getRoomBasePose(room)
+            loc = self.addNavLocation(room.name, nav_name, base)
+            if loc is None:
+                print(f"[WARN] Could not place '{nav_name}' (room crowded?). "
+                    f"Consider adding room.nav_poses for '{room.name}'.")
 
 
     def createWorldFromYaml(self) -> World:
-        return WorldYamlLoader().from_file(os.path.join(self.dataFolder, self.worldFile))
+        self.world = WorldYamlLoader().from_file(f"./{self.world_file}.yaml")
+        return self.world
+    
+
+    def exploreAndDiscover(self) -> list[Object]:
+        def compare(string1:str, string2:str):
+            return string1[:5] == string2[:5]
+
+        print("PHASE 1: STARTING EXPLORATION...")
+        world = self.getWorld
+        robot = world.robots[0]
+        discovered_objects = []
+
+        # Create a list of waypoints to visit (room nav poses or room centers)
+        locations_to_visit = [loc for loc in world.locations if loc.name != "world"]
+        
+        if not locations_to_visit:
+            print("No locations found in the world to visit.")
+            return {}
+
+        print(f"Generated a plan to visit {len(locations_to_visit)} locations.")
+
+        # Visit each location
+        for i, location in enumerate(locations_to_visit):
+            print(f"\n---> Visiting location {i+1}/{len(locations_to_visit)}: '{location.name}' in room '{location.get_room_name()}'")
+
+            # Let robot navigate to the location
+            action = TaskAction("navigate", target_location=location.name)
+            plan = TaskPlan(actions=[action])
+            print(f"Executing plan: Navigate to '{location.name}'")
+            robot.execute_plan(plan)
+            
+            print(f"Navigation success. Programmatically querying items at '{location.name}'...")
+
+            objects_on_location = []
+            for obj in world.objects:
+                    if compare(obj.parent.name, location.name):
+                        objects_on_location.append(obj)
+                        discovered_objects.append(obj)
+                        self.updateObject(obj_name=obj.name)
+                    else:
+                        continue
+
+            print(f"{location} has: {objects_on_location}")
 
 
-    def createWorld(self) -> World:
-        """Create a test world"""
-        world = World()
+        print("\n-----------------------------------")
+        print("PHASE 1: EXPLORATION COMPLETE!")
+        print(f"Discovered a total of {len(discovered_objects)} items.")
+        print("-----------------------------------")
+        return discovered_objects
+    
 
-        # Set the location and object metadata
-        world.add_metadata(
-            locations=[
-                os.path.join(self.dataFolder, "example_location_data_furniture.yaml"),
-                os.path.join(self.dataFolder, "example_location_data_accessories.yaml"),
-            ],
-            objects=[
-                os.path.join(self.dataFolder, "example_object_data_food.yaml"),
-                os.path.join(self.dataFolder, "example_object_data_drink.yaml"),
-            ],
-        )
+    def solveWithUPF(self, domain_pddl:str, problem_pddl:str) -> Any | None:
+        print("PHASE 2: SOLVING PROBLEM WITH UPF...")
+        reader = PDDLReader()
+        problem = reader.parse_problem(domain_pddl, problem_pddl)
 
-        # Add rooms
-        r1coords = [(-1, -1), (1.5, -1), (1.5, 1.5), (0.5, 1.5)]
-        world.add_room(
-            name="kitchen",
-            pose=Pose(x=0.0, y=0.0, z=0.0, yaw=0.0),
-            footprint=r1coords,
-            color="red",
-            nav_poses=[Pose(x=0.75, y=0.75, z=0.0, yaw=0.0)],
-        )
-        r2coords = [(-0.875, -0.75), (0.875, -0.75), (0.875, 0.75), (-0.875, 0.75)]
-        world.add_room(
-            name="office1",
-            pose=Pose(x=2.625, y=3.25, z=0.0, yaw=0.0),
-            footprint=r2coords,
-            color="#009900",
-        )
-        r3coords = [(-1, 1), (-1, 3.5), (-3.0, 3.5), (-2.5, 1)]
-        world.add_room(
-            name="bathroom",
-            footprint=r3coords,
-            color=[0.0, 0.0, 0.6],
-        )
-        office2_coords = [(-1.0, -0.75), (1.0, -0.75), (1.0, 0.75), (-1.0, 0.75)]
-        world.add_room(
-            name="office2",
-            pose=Pose(x=4.0, y=1.0),
-            footprint=office2_coords,
-            color="#3366FF"
-        )
+        with OneshotPlanner(problem_kind=problem.kind) as planner:
+            result = planner.solve(problem)
+            if result.plan:
+                print("UPF found a plan!")
+                for action in result.plan.actions:
+                    print(f"  - {action}")
+                return result.plan
+            print("UPF could not find a plan.")
+            return None
+    
+    def executeUPFPlan(self, plan: Any | None) -> None:
+        if not plan:
+            print("No plan to execute.")
+            return
+        print("\nPHASE 3: EXECUTING THE FINAL PLAN...")
+        world = self.getWorld
+        robot = world.robots[0]
+
+        # Iterate through each action in the UPF plan
+        for i, action in enumerate(plan.actions):
+            action_name = action.action.name
+            params = [parameter.object().name for parameter in action.actual_parameters]
+            
+            print(f"\n--- Step {i+1}/{len(plan.actions)}: Executing {action_name}{params} ---")
+
+            task_list = []
+            # Core translation logic: map PDDL actions to PyRoboSim actions
+            if action_name == "move":
+                # PDDL move parameters: (robot, from_room, to_room)
+                target_room_name = "nav_" + params[2]
+                task_list.append(TaskAction("navigate", target_location=target_room_name))
+
+            elif action_name == "pick":
+                # PDDL pick parameters: (robot, item, location, room)
+                target_object_name = params[1]
+                target_location_name = params[2]
+                target_location = world.get_location_by_name(target_location_name)
+                if not target_location.is_open:
+                    target_location.set_open(state=True)
+                task_list.append(TaskAction("navigate", target_location=target_location_name))
+                task_list.append(TaskAction("pick", object=target_object_name))
+                task_list.append(TaskAction("detect", object=target_object_name))
+
+
+            elif action_name == "place": 
+                # PDDL place parameters: (robot, item, location, room)
+                target_location_name = params[2]
+                target_object_name = params[1]
+                target_location = world.get_location_by_name(target_location_name)
+                if not target_location.is_open:
+                    target_location.set_open(state=True)
+                task_list.append(TaskAction("navigate", target_location=target_location_name))
+                task_list.append(TaskAction("place", target_location=target_location_name))
+                task_list.append(TaskAction("detect", object=target_object_name))
+            
+            # Execute if task not found raise error
+            if task_list == []:
+                raise Exception("Task couldn't find while executing UPF.")
+            task_plan = TaskPlan(actions=task_list)
+            result = robot.execute_plan(task_plan)
+        print("\nPHASE 4: PLAN EXECUTION FINISHED!")
+
+    
+    def getRandomLocation(self) -> Location:
+        world = self.getWorld
+        return random.choice(world.get_locations())
+
+    def generateProblemPDDL(self,
+                            problem_for_pddl:str,
+                            domain_for_pddl:str) -> str:
+        """Generates pddl problem as string for creating pddl file."""
+        world = self.getWorld
+        robots = world.robots
+        rooms = world.rooms
+        locations = world.locations
+        objects = world.objects
+        hallways = world.hallways
+        first_robot = robots[0]
+        problem_for_pddl = problem_for_pddl
+        domain_for_pddl = domain_for_pddl
+
+        def generateObjects() -> str:
+            if len(robots) > 1:
+                raise NotImplementedError
+            objects_str = ""
+            objects_str += f"{first_robot.name} - robot\n\t\t"
+            for room in rooms:    
+                objects_str += f"{room.name} "
+            objects_str += "- room\n\t\t"
+            for location in locations:
+                objects_str += f"{location.name} "
+            objects_str += "- location\n\t\t"
+            for obj in objects:
+                objects_str += f"{obj.name} "
+            objects_str += "- item\n\t\t" 
+            return objects_str
+        objects_for_pddl = generateObjects()
+
+        def generateInit() -> str:
+            loc_of_robot = self.getRoomByCenter(first_robot.location.name).name
+            init_str = f"\n\t\t(at {first_robot.name} {loc_of_robot})\n\t\t"
+            init_str += f"(visited {loc_of_robot})\n\t\t"
+            init_str += f"(handempty {first_robot.name})\n\t\t"
+
+            # Where are the locations?
+            for location in locations:
+                init_str += f"(locationof {location.name} {self.getRoomOfLocation(location=location).name})\n\t\t"
+            
+            # Where are the objects?
+            for object in objects:
+                init_str += f"(on {object.name} {self.getLocationOfObject(object=object).name})\n\t\t"
+            
+            # Connectivity
+            for hallway in hallways:
+                init_str += f"(connected {hallway.room_start.name} {hallway.room_end.name}) (connected {hallway.room_end.name} {hallway.room_start.name})\n\t\t"
+            return init_str
+        init_for_pddl = generateInit()
+
+        def generateGoal(target_loc: Location = None) -> str:
+            target_location = target_loc if target_loc else self.getRandomLocation()
+            target_str = f"\n\t\t(and\n\t\t\t"
+            for object in objects:
+                target_str += f"(on {object.name} {target_location.name})\n\t\t\t"
+            target_str += ")"
+            return target_str
+        goal_for_pddl = generateGoal()
+
+        return f"(define (problem {problem_for_pddl})\n" \
+                f"  (:domain {domain_for_pddl})\n" \
+                "   (:objects\n" \
+                f"\t\t{objects_for_pddl}" \
+                "   )\n" \
+                "   (:init" \
+                f"\t\t{init_for_pddl}" \
+                "   )\n" \
+                "   (:goal" \
+                f"\t\t{goal_for_pddl}" \
+                "   )\n" \
+                ")"
+
+    def writeProblemPDDL(self, pddl_as_str:str) -> str:
+        """Write the given pddl str in a .pddl file."""
+        if not isinstance(pddl_as_str, str):
+            raise TypeError({pddl_as_str}, " should be str.")
+        
+        file_name = "task5_problem.pddl"
+        with open(f"{file_name}", "w") as text_file:
+            text_file.write(pddl_as_str)
+        return file_name
         
 
-        # Add hallways between the rooms
-        world.add_hallway(
-            room_start="kitchen", room_end="bathroom", width=0.7, color="#666666"
-        )
-        world.add_hallway(
-            room_start="bathroom",
-            room_end="office1",
-            width=0.5,
-            conn_method="angle",
-            conn_angle=0,
-            offset=0.8,
-            color="dimgray",
-        )
-        world.add_hallway(
-            room_start="kitchen",
-            room_end="office1",
-            width=0.6,
-            conn_method="points",
-            conn_points=[(1.0, 0.5), (2.5, 0.5), (2.5, 3.0)],
-        )
-        world.add_hallway(
-            room_start="office1",
-            room_end="office2",
-            width=0.6,
-            conn_method="points",
-            conn_points=[(3.5, 3.25), (4.0, 2.0), (4.0, 1.0)],
-            color="#444444"
-        )
 
-
-        # Add locations
-        table = world.add_location(
-            category="table",
-            parent="kitchen",
-            pose=Pose(x=0.85, y=-0.5, z=0.0, yaw=-90.0, angle_units="degrees"),
-        )
-        desk_pose = world.get_pose_relative_to(
-            Pose(x=0.525, y=0.4, z=0.0, yaw=0.0), "office1"
-        )
-        desk = world.add_location(category="desk", parent="office1", pose=desk_pose)
-
-    
-
-        counter = world.add_location(
-            category="counter",
-            parent="bathroom",
-            pose=Pose(x=-2.45, y=2.5, z=0.0, q=[0.634411, 0.0, 0.0, 0.7729959]),
-        )
-
-        # Add objects
-        banana_pose = world.get_pose_relative_to(
-            Pose(x=0.15, y=0.0, z=0.0, q=[0.9238811, 0.0, 0.0, -0.3826797]), table
-        )
-        world.add_object(category="banana", parent=table, pose=banana_pose)
-        apple_pose = world.get_pose_relative_to(
-            Pose(x=0.05, y=-0.15, z=0.0, q=[1.0, 0.0, 0.0, 0.0]), desk
-        )
-        world.add_object(category="apple", parent=desk, pose=apple_pose)
-        world.add_object(category="apple", parent=table)
-        world.add_object(category="apple", parent=table)
-        world.add_object(category="water", parent=counter)
-        world.add_object(category="banana", parent=counter)
-        world.add_object(category="water", parent=desk)
-
-        # Add robots
-        grasp_props = ParallelGraspProperties(
-            max_width=0.175,
-            depth=0.1,
-            height=0.04,
-            width_clearance=0.01,
-            depth_clearance=0.01,
-        )
-        lidar = Lidar2D(
-            update_rate_s=0.1,
-            angle_units="degrees",
-            min_angle=-120.0,
-            max_angle=120.0,
-            angular_resolution=5.0,
-            max_range_m=2.0,
-        )
-
-        robot0 = Robot(
-            name="robot0",
-            radius=0.1,
-            path_executor=ConstantVelocityExecutor(
-                linear_velocity=1.0,
-                dt=0.1,
-                max_angular_velocity=4.0,
-                validate_during_execution=True,
-            ),
-            sensors={"lidar": lidar},
-            grasp_generator=GraspGenerator(grasp_props),
-            partial_obs_objects=self.partialObsObjects,
-            color="#CC00CC",
-        )
-        world.add_robot(robot0, loc="kitchen")
-        planner_config_rrt = {
-            "bidirectional": True,
-            "rrt_connect": False,
-            "rrt_star": True,
-            "collision_check_step_dist": 0.025,
-            "max_connection_dist": 0.5,
-            "rewire_radius": 1.5,
-            "compress_path": False,
-        }
-        rrt_planner = RRTPlanner(**planner_config_rrt)
-        robot0.set_path_planner(rrt_planner)
-
-        if self.multiRobot:
-            robot1 = Robot(
-                name="robot1",
-                radius=0.08,
-                color=(0.8, 0.8, 0),
-                path_executor=ConstantVelocityExecutor(),
-                grasp_generator=GraspGenerator(grasp_props),
-                partial_obs_objects=self.partialObsObjects,
-            )
-            world.add_robot(robot1, loc="bathroom")
-            planner_config_prm = {
-                "collision_check_step_dist": 0.025,
-                "max_connection_dist": 1.5,
-                "max_nodes": 100,
-                "compress_path": False,
-            }
-            prm_planner = PRMPlanner(**planner_config_prm)
-            robot1.set_path_planner(prm_planner)
-
-            robot2 = Robot(
-                name="robot2",
-                radius=0.06,
-                color=(0, 0.8, 0.8),
-                path_executor=ConstantVelocityExecutor(),
-                grasp_generator=GraspGenerator(grasp_props),
-                partial_obs_objects=self.partialObsObjects,
-            )
-            world.add_robot(robot2, loc="office1")
-            planner_config_astar = {
-                "grid_resolution": 0.05,
-                "grid_inflation_radius": 0.15,
-                "diagonal_motion": True,
-                "heuristic": "euclidean",
-            }
-            astar_planner = AStarPlanner(**planner_config_astar)
-            robot2.set_path_planner(astar_planner)
-
-        return world
-    
 

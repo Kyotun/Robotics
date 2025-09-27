@@ -20,7 +20,7 @@ metadata:
 
 # ROBOTS
 robots:
-  - name: Alan Turing
+  - name: alan_turing
     radius: 0.1
     location: kitchen
     color: "#CC00CC"

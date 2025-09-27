@@ -13,6 +13,6 @@ def parse_args() -> argparse.Namespace:
 
     # REQUIRED: PDDL file inputs
     p.add_argument("--domain-file", required=True, help="Path to visit-all domain PDDL.")
-    p.add_argument("--problem-file", required=False, help="Path to visit-all problem PDDL.")
+    p.add_argument("--problem-file", required=True, help="Path to visit-all problem PDDL.")
 
     return p.parse_args()
