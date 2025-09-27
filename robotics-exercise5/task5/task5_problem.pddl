@@ -30,9 +30,9 @@
 		   )
    (:goal		
 		(and
-			(on apple0 nav_office2)
-			(on water_bottle0 nav_office2)
-			(on soda0 nav_office2)
-			(on apple1 nav_office2)
+			(on apple0 nav_kitchen)
+			(on water_bottle0 nav_kitchen)
+			(on soda0 nav_kitchen)
+			(on apple1 nav_kitchen)
 			)   )
 )

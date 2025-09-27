@@ -190,7 +190,7 @@ locations:
         yaw: -90.0
         angle_units: "degrees"
     is_open: True
-    is_locked: True
+    is_locked: False
   
   - name: counter0
     category: counter
@@ -203,7 +203,7 @@ locations:
         yaw: 101.2
         angle_units: "degrees"
     is_open: True
-    is_locked: True
+    is_locked: False
 
   - name: desk0
     category: desk
@@ -223,8 +223,8 @@ locations:
       position:
         x: 4.4
         y: 0.5
-    is_open: False
-    is_locked: True
+    is_open: True
+    is_locked: False
     is_charger: True
 
   - name: trash
@@ -237,7 +237,8 @@ locations:
       rotation_eul:
         yaw: 90.0
       angle_units: "degrees"
-    is_open: False
+    # These options are for container like objects
+    is_open: True # If true, robot can put/take objects
     is_locked: False
 
 # OBJECTS

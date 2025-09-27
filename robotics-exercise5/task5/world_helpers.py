@@ -70,16 +70,42 @@ class WorldHelper():
     def getWorld(self) -> World:
         return self.world
     
+
+    def updateAllObjects(self) -> None:
+        """Detects all objects in World."""
+        world = self.getWorld
+        objects = world.objects
+        robot = world.robots[0]
+        for object in objects:
+            action = TaskAction("detect", object=object.name)
+            plan = TaskPlan(actions=[action])
+            robot.execute_plan(plan=plan)
+
+    
+    def updateObject(self, obj_name: str ) -> None:
+        """Detects the object given with name. Preassumption that robot is at target location."""
+        world = self.getWorld
+        objects = world.objects
+        robot = world.robots[0]
+        for object in objects:
+            if object.name == obj_name:
+                action = TaskAction("detect", object=obj_name)
+                plan = TaskPlan(actions=[action])
+                robot.execute_plan(plan=plan)
+
+    
     def getLocationOfObject(self, object:Object) -> Location:
+        """Returns the location of the object if exists."""
         world = self.getWorld
         locations = world.locations
         for location in locations:
-            # I don't know if this is the best way to define
+            # I don't know if this is the best way to define but works.
             if object.parent.name.startswith(location.name):
                 return location
         raise Exception(f"Parent of {object.name} cannot found.")
     
     def getRoomOfLocation(self, location:Location) -> Room:
+        """Returns the room of location."""
         world = self.getWorld
         rooms = world.rooms
         for room in rooms:
@@ -96,6 +122,7 @@ class WorldHelper():
     
 
     def getRoomByName(self, room_name:str) -> Room | None:
+        """Returns the room object with help of its name."""
         world = self.getWorld
         for room in world.rooms:
             if getattr(room, "name", None) == room_name:
@@ -104,6 +131,7 @@ class WorldHelper():
     
 
     def getRoomByCenter(self, name_center_room: str) -> Room | None:
+        """Returns the room with help of its center name."""
         world = self.getWorld
         center_room_name_list = name_center_room.split("_")
         for room in world.rooms:
@@ -112,6 +140,7 @@ class WorldHelper():
 
 
     def getRoomBasePose(self, room:Room) -> Pose:
+        """Returns the nav_pose of room."""
          # 1) explicit nav pose
         navs = getattr(room, "nav_poses", None)
         if navs:
@@ -123,6 +152,7 @@ class WorldHelper():
 
 
     def getRobot(self, preferred_name: str = "") -> Robot:
+        """Returns the Robot with given name."""
         world = self.getWorld
         if preferred_name:
             for robot in world.robots:
@@ -199,63 +229,6 @@ class WorldHelper():
                     f"Consider adding room.nav_poses for '{room.name}'.")
 
 
-    def executeVisitAll(self, plan_steps: list):
-        """Map PDDL 'move(my_robot, from, to)' to PyRoboSim navigation."""
-        world = self.getWorld
-        robot = self.getRobot(world)
-        for name, params in plan_steps:
-            if name != "move":
-                print(f"[WARN] Skipping non-move action: {name}")
-                continue
-            _, frm, to = params
-            print(f"[EXEC] move: {frm} -> {to}")
-            self.navigateToRoom(world, robot, to, block=True)
-
-
-    def navigateToRoom(self,
-                        robot: Robot,
-                        room_name: str,
-                        block: bool = True,
-                        dt: float = 0.05,
-                        timeout_s: float = 60.0) -> None:
-        """Command the robot to navigate to a room's nav pose. Poll the world until idle."""
-        world = self.getWorld
-        goal_pose = self.getRoomNavPose(room_name)
-        if goal_pose is None:
-            available = [r.name for r in self.world.rooms]
-            raise RuntimeError(
-                f"[navigateToRoom] Goal pose is None for room '{room_name}'. "
-                f"Available rooms: {available}"
-            )
-        
-        print(f"[EXEC] navigate_to {room_name} -> Pose(x={goal_pose.x:.3f}, y={goal_pose.y:.3f}, yaw={getattr(goal_pose, 'yaw', 0.0)})")
-
-        # Sanity: make sure robot has a path planner
-        if getattr(robot, "path_planner", None) is None:
-            raise RuntimeError("[navigateToRoom] robot.path_planner is None. Set RRT/PRM/A* before navigating.")
-    
-        robot.navigate(goal_pose)
-
-        t0 = time.time()
-        while True:
-            # Check if executor exposes an "is_executing" flag
-            busy = True
-            try:
-                if hasattr(robot, "path_executor") and hasattr(robot.path_executor, "is_executing"):
-                    busy = robot.path_executor.is_executing
-            except Exception:
-                busy = True
-
-            if not busy:
-                break
-
-            time.sleep(dt)
-
-            if time.time() - t0 > timeout_s:
-                print(f"[WARN] Timeout navigating to {room_name}")
-                break
-
-
     def createWorldFromYaml(self) -> World:
         self.world = WorldYamlLoader().from_file(f"./{self.world_file}.yaml")
         return self.world
@@ -296,10 +269,12 @@ class WorldHelper():
                     if compare(obj.parent.name, location.name):
                         objects_on_location.append(obj)
                         discovered_objects.append(obj)
+                        self.updateObject(obj_name=obj.name)
                     else:
                         continue
 
             print(f"{location} has: {objects_on_location}")
+
 
         print("\n-----------------------------------")
         print("PHASE 1: EXPLORATION COMPLETE!")
@@ -338,28 +313,40 @@ class WorldHelper():
             
             print(f"\n--- Step {i+1}/{len(plan.actions)}: Executing {action_name}{params} ---")
 
-            task = None
+            task_list = []
             # Core translation logic: map PDDL actions to PyRoboSim actions
             if action_name == "move":
                 # PDDL move parameters: (robot, from_room, to_room)
                 target_room_name = "nav_" + params[2]
-                print(target_room_name)
-                task = TaskAction("navigate", target_location=target_room_name)
+                task_list.append(TaskAction("navigate", target_location=target_room_name))
 
             elif action_name == "pick":
                 # PDDL pick parameters: (robot, item, location, room)
                 target_object_name = params[1]
-                task = TaskAction("pick", object=target_object_name)
+                target_location_name = params[2]
+                target_location = world.get_location_by_name(target_location_name)
+                if not target_location.is_open:
+                    target_location.set_open(state=True)
+                task_list.append(TaskAction("navigate", target_location=target_location_name))
+                task_list.append(TaskAction("pick", object=target_object_name))
+                task_list.append(TaskAction("detect", object=target_object_name))
+
 
             elif action_name == "place": 
                 # PDDL place parameters: (robot, item, location, room)
                 target_location_name = params[2]
-                task = TaskAction("place", target_location=target_location_name)
+                target_object_name = params[1]
+                target_location = world.get_location_by_name(target_location_name)
+                if not target_location.is_open:
+                    target_location.set_open(state=True)
+                task_list.append(TaskAction("navigate", target_location=target_location_name))
+                task_list.append(TaskAction("place", target_location=target_location_name))
+                task_list.append(TaskAction("detect", object=target_object_name))
             
             # Execute if task not found raise error
-            if not task:
+            if task_list == []:
                 raise Exception("Task couldn't find while executing UPF.")
-            task_plan = TaskPlan(actions=[task]) #let single action into a plan
+            task_plan = TaskPlan(actions=task_list)
             result = robot.execute_plan(task_plan)
         print("\nPHASE 4: PLAN EXECUTION FINISHED!")
 
@@ -371,6 +358,7 @@ class WorldHelper():
     def generateProblemPDDL(self,
                             problem_for_pddl:str,
                             domain_for_pddl:str) -> str:
+        """Generates pddl problem as string for creating pddl file."""
         world = self.getWorld
         robots = world.robots
         rooms = world.rooms
@@ -418,8 +406,8 @@ class WorldHelper():
             return init_str
         init_for_pddl = generateInit()
 
-        def generateGoal() -> str:
-            target_location = self.getRandomLocation()
+        def generateGoal(target_loc: Location = None) -> str:
+            target_location = target_loc if target_loc else self.getRandomLocation()
             target_str = f"\n\t\t(and\n\t\t\t"
             for object in objects:
                 target_str += f"(on {object.name} {target_location.name})\n\t\t\t"
@@ -441,6 +429,7 @@ class WorldHelper():
                 ")"
 
     def writeProblemPDDL(self, pddl_as_str:str) -> str:
+        """Write the given pddl str in a .pddl file."""
         if not isinstance(pddl_as_str, str):
             raise TypeError({pddl_as_str}, " should be str.")
         
