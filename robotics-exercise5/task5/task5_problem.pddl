@@ -4,7 +4,7 @@
 		alan_turing - robot
 		kitchen office1 bathroom office2 - room
 		table0 counter0 desk0 charger0 trash nav_kitchen nav_office1 nav_bathroom nav_office2 - location
-		apple0 water_bottle0 soda0 apple1 - item
+		apple0 water_bottle0 soda0 - item
 		   )
    (:init		
 		(at alan_turing office2)
@@ -20,9 +20,8 @@
 		(locationof nav_bathroom bathroom)
 		(locationof nav_office2 office2)
 		(on apple0 desk0)
-		(on water_bottle0 desk0)
-		(on soda0 desk0)
-		(on apple1 trash)
+		(on water_bottle0 charger0)
+		(on soda0 table0)
 		(connected kitchen bathroom) (connected bathroom kitchen)
 		(connected bathroom office1) (connected office1 bathroom)
 		(connected kitchen office1) (connected office1 kitchen)
@@ -30,9 +29,8 @@
 		   )
    (:goal		
 		(and
-			(on apple0 charger0)
-			(on water_bottle0 charger0)
-			(on soda0 charger0)
-			(on apple1 charger0)
+			(on apple0 counter0)
+			(on water_bottle0 counter0)
+			(on soda0 counter0)
 			)   )
 )

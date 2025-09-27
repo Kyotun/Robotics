@@ -411,15 +411,15 @@ class WorldHelper:
 
         init_for_pddl = generateInit()
 
-        def generateGoal(target_loc: Location = None) -> str:
-            target_location = target_loc if target_loc else self.getRandomLocation()
-            target_str = f"\n\t\t(and\n\t\t\t"
+        def generateGoal(target_loc: str = None) -> str:
+            target_location = target_loc if target_loc else self.getRandomLocation().name
+            target_str = "\n\t\t(and\n\t\t\t"
             for object in objects:
-                target_str += f"(on {object.name} {target_location.name})\n\t\t\t"
+                target_str += f"(on {object.name} {target_location})\n\t\t\t"
             target_str += ")"
             return target_str
 
-        goal_for_pddl = generateGoal()
+        goal_for_pddl = generateGoal(target_loc="counter0")
 
         return (
             f"(define (problem {problem_for_pddl})\n"

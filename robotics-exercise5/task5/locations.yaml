@@ -2,7 +2,7 @@
 waypoint: 
   footprint: 
     type: circle
-    radius: 0.05
+    radius: 0.01
     height: 0.0
   locations:
     - name: "center"

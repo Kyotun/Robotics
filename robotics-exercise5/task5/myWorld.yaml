@@ -75,7 +75,7 @@ robots:
         min_angle: -120.0
         max_angle: 120.0
         angular_resolution: 5.0
-        max_range_m: 3.0
+        max_range_m: 1.0
 
     start_sensor_threads: true  # If True, automatically starts sensor threads
 
@@ -197,8 +197,8 @@ locations:
     parent: bathroom
     pose:
       position:
-        x: -2.45
-        y: 2.5
+        x: -2.44
+        y: 2.44
       rotation_eul:
         yaw: 101.2
         angle_units: "degrees"
@@ -253,13 +253,11 @@ objects:
         x: 0.05
         y: -0.15
       relative_to: desk0
+
   - name: water_bottle0
     category: water
-    parent: desk0
+    parent: charger0
+
   - name: soda0
     category: coke
-    parent: desk0
-
-  - name: apple1
-    category: apple
-    parent: trash
+    parent: table0
