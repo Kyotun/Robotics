@@ -1,0 +1,49 @@
+trash_can_big:
+  footprint:
+    type: box          # 用一个大盒子表示桶
+    dims: [0.1, 0.1]   # 地面占地 0.6m x 0.6m
+    height: 0.0
+  locations:
+    - name: "top"
+      footprint:
+        type: polygon
+        coords:
+          - [-0.25, -0.25]
+          - [ 0.25, -0.25]
+          - [ 0.25,  0.25]
+          - [-0.25,  0.25]
+  nav_poses:
+    - position:  # left
+        x: -0.5
+        y: 0.0
+    - position:  # right
+        x: 0.5
+        y: 0.0
+      rotation_eul:
+        yaw: 3.14
+  color: [0, 0.35, 0.2]
+
+# Idea: Put points on the centers of the rooms so that our robot can navigate toward to it.
+waypoint: 
+  footprint: 
+    type: circle
+    radius: 0.01
+    height: 0.0
+  locations:
+    - name: "center"
+      footprint:
+        type: parent
+        padding: 0.0
+  nav_poses:
+    - position:  # left
+        x: -0.5
+        y: 0.0
+    - position:  # right
+        x: 0.5
+        y: 0.0
+      rotation_eul:
+        yaw: 3.14
+  color: [0, 0.35, 0.2]
+
+
+  
